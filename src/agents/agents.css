@@ -26,6 +26,23 @@
 .ag-tag .meta { display: block; margin-top: 2px; font-size: 9px; letter-spacing: 0.26em; color: var(--c); }
 .ag-tag.pulse, .agrow.pulse .dot, #agterm .st.pulse { animation: agpulse 0.9s ease-in-out infinite; }
 
+/* ---------- the card for the agent you are at (kerb or beam), over the prompt ---------- */
+.ag-card {
+  position: absolute; left: 50%; bottom: calc(var(--gutter) + 100px); transform: translateX(-50%); width: min(460px, calc(100vw - 2 * var(--gutter)));
+  padding: 12px 16px 12px 15px; background: var(--panel); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); border-left: 2px solid var(--c);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--c) 14%, transparent); animation: fadein 0.3s ease; pointer-events: none;
+}
+.ag-card .hd { display: flex; align-items: center; gap: 0; min-width: 0; }
+.ag-card .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); margin-right: 10px; }
+.ag-card .hd b { flex: 1; min-width: 0; font-weight: 500; font-size: 16px; letter-spacing: 0.05em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-card .st { flex: none; margin-left: 14px; font-size: 10px; letter-spacing: 0.3em; color: var(--c); }
+.ag-card.pulse .st, .ag-card.pulse .dot { animation: agpulse 0.9s ease-in-out infinite; }
+.ag-card .sub { margin: 3px 0 0 18px; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-card .last { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ag-card .rows { display: grid; gap: 4px; margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.ag-card .rows span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-card .rows i { display: inline-block; width: 52px; font-style: normal; font-family: var(--display); font-size: 9px; letter-spacing: 0.3em; color: var(--ink-faint); }
+
 /* ---------- the list ---------- */
 #aglist .sheet { width: min(880px, 94vw); }
 .agrows { display: grid; gap: 8px; max-height: 62vh; overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(150, 225, 255, 0.25) transparent; }
@@ -77,8 +94,15 @@
 
 @media (max-width: 760px), (max-height: 520px) {
   .h-agents { top: 106px; }
+  .ag-card { bottom: 380px; }
+  .ag-card .rows { display: none; }
   .agrow { grid-template-columns: 12px 1fr auto; }
   .agrow .acts { grid-column: 2 / -1; }
   #agterm .tw { width: 100vw; height: 100vh; clip-path: none; }
   #agterm .tfoot .hint { display: none; }
+}
+/* a phone on its side: no room over the prompt, so the card goes top left, under the minimap's row */
+@media (max-height: 520px) and (orientation: landscape) {
+  .ag-card { left: auto; right: var(--gutter); bottom: auto; top: 150px; transform: none; width: min(340px, 45vw); }
+  .ag-card .last { -webkit-line-clamp: 1; }
 }

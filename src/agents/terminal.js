@@ -34,7 +34,7 @@ export class TerminalView {
           </div>
           <div class="tmeta"></div>
           <div class="tbody"></div>
-          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">READ-ONLY · SCROLL TO READ BACK · SELECT TO COPY</span></div>
+          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">READ-ONLY · ↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#agterm');
@@ -124,6 +124,16 @@ export class TerminalView {
     ].filter(Boolean);
     this.q('.tmeta').innerHTML = bits.map(([k, v]) => `<span><i>${k}</i>${esc(v)}</span>`).join('');
   }
+
+  // lines (±Infinity: the top or the bottom) and pages, for the keyboard and the gamepad
+  scroll(n) {
+    if (!this.term || !this.id) return;
+    if (n === -Infinity) this.term.scrollToTop();
+    else if (n === Infinity) this.term.scrollToBottom();
+    else this.term.scrollLines(n);
+  }
+
+  page(n) { if (this.term && this.id) this.term.scrollPages(n); }
 
   // after a reconnect the server may have moved on: refetch rather than trust the stream
   resync() { if (this.id) this.load(); }

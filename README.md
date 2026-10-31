@@ -23,7 +23,7 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | | |
 |---|---|
 | `G` or click the **AGENTS** counter | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. |
-| Pull up in the ring at the kerb | `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `Esc` to leave. |
+| Pull up in the ring at the kerb, or fly into the agent's beam | A card shows who the agent is and what it last said; `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `↑ ↓` `PgUp PgDn` `Home End` (or a gamepad's sticks, d-pad, LB / RB) read back; `Esc` (or B) to leave. |
 | `M` | City map with every agent marked by status. |
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
 
@@ -54,7 +54,7 @@ you, and name tags float over the agents' roofs.
 | Left stick X | Steer |
 | Right stick Y | Climb and descend |
 | Grip (either) | Boost |
-| **A** | Open the terminal at an agent's kerb (or start a run at its beacon) |
+| **A** | Open the terminal at an agent's kerb or in its beam (or start a run at its beacon) |
 | **X** | Agents list: stick to choose, **A** drive, **trigger** warp, **B** close |
 | **Y** | Seat view or chase view |
 | Right stick (terminal) | Scroll back; **A** or **B** closes |

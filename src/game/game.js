@@ -302,7 +302,7 @@ export class Game {
         if (Math.hypot(k.pos.x - r.start.x, k.pos.z - r.start.z) < 12 && Math.abs(k.pos.y - r.start.y) < 10) this.nearRun = i;
       });
     }
-    // parked at an agent's door: offer its terminal (a run beacon on the same spot wins)
+    // parked at an agent's door, or in its beam: offer its terminal (a run beacon on the same spot wins)
     this.nearAgent = this.agents && !this.run && this.state === 'play' && this.nearRun === null ? this.agents.nearest(k.pos) : null;
     if (this.agents) this.agents.near = this.nearAgent;
     this.hud.prompt(this.nearRun !== null ? `<span class="key">${this.touch ? 'TAP' : 'ENTER'}</span>START ${this.runs[this.nearRun].en}`

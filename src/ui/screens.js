@@ -59,7 +59,6 @@ export class Screens {
             <button class="btn" data-act="settings">SETTINGS</button>
             <button class="btn" data-act="controls">CONTROLS</button>
             <button class="btn" data-act="credits">CREDITS</button>
-            <a class="btn ghost" href="${REPO}" target="_blank" rel="noopener">BUILT ON NEON ZENITH ★</a>
           </div>
           <div class="t-press">PRESS ENTER</div>
         </div>
