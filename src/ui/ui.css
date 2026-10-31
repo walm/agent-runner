@@ -97,8 +97,9 @@
 .h-district { margin-top: 6px; font-size: 11px; letter-spacing: 0.36em; color: var(--ink-dim); transition: opacity 0.5s; }
 .h-alt { position: absolute; left: var(--gutter); top: 50%; transform: translateY(-50%); }
 .h-alt canvas { display: block; width: 118px; height: 400px; }
-.h-map { position: absolute; left: var(--gutter); bottom: var(--gutter); width: 210px; height: 210px; }
-.h-map canvas { width: 210px; height: 210px; display: block; }
+.h-map { position: absolute; left: calc(var(--gutter) - 20px); bottom: calc(var(--gutter) - 20px); width: 280px; height: 280px; }
+/* see-through and fading out toward the rim (hud.js keeps what matters inside the fade) */
+.h-map canvas { width: 280px; height: 280px; display: block; -webkit-mask-image: radial-gradient(circle closest-side, #000 72%, rgba(0, 0, 0, 0.55) 86%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 72%, rgba(0, 0, 0, 0.55) 86%, transparent 100%); }
 .h-speed { position: absolute; right: var(--gutter); bottom: var(--gutter); width: 230px; height: 150px; text-align: right; }
 .h-speed svg { position: absolute; right: 0; bottom: 0; overflow: visible; }
 .h-spd { position: absolute; left: 148px; transform: translateX(-50%); bottom: 50px; font-family: var(--mono); font-size: 54px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }

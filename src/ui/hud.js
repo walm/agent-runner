@@ -15,6 +15,8 @@ function canvas(el, w, h) {
   return g;
 }
 
+const MAP_W = 280; // the minimap's size in css px (ui.css shrinks it on small screens)
+
 export class Hud {
   constructor(root, mapImage) {
     this.root = root;
@@ -47,7 +49,7 @@ export class Hud {
     const q = (s) => this.el.querySelector(s);
     this.gCompass = canvas(q('.h-compass'), 440, 34);
     this.gAlt = canvas(q('.h-alt'), 118, 400);
-    this.gMap = canvas(q('.h-map'), 210, 210);
+    this.gMap = canvas(q('.h-map'), MAP_W, MAP_W);
     this.dEn = q('.h-district .en');
     this.spd = q('.h-spd'); this.modeEn = q('.h-mode .en');
     this.arcV = q('.arc-v'); this.arcB = q('.arc-b');
@@ -284,18 +286,23 @@ export class Hud {
     g.beginPath(); g.moveTo(ox - 9, cyO - 4); g.lineTo(ox - 3, cyO); g.lineTo(ox - 9, cyO + 4); g.fill();
   }
 
+  // heading-up, see-through, fading out toward its rim (the mask is in ui.css): what lies past the fade is clamped
+  // to the readable ring at EDGE
   drawMap(s) {
-    const g = this.gMap, W = 210, R = W / 2 - 4;
+    const g = this.gMap, W = MAP_W, R = W / 2, EDGE = R * 0.8;
     g.clearRect(0, 0, W, W);
     g.save();
     g.beginPath(); g.arc(W / 2, W / 2, R, 0, Math.PI * 2); g.clip();
-    g.fillStyle = 'rgba(4,6,12,0.75)'; g.fillRect(0, 0, W, W);
+    const tint = g.createRadialGradient(W / 2, W / 2, 0, W / 2, W / 2, R);
+    tint.addColorStop(0, 'rgba(4, 10, 20, 0.5)');
+    tint.addColorStop(1, 'rgba(4, 14, 26, 0.25)');
+    g.fillStyle = tint; g.fillRect(0, 0, W, W);
     const range = 220 + Math.min(700, s.speed * 3 + Math.max(0, s.alt - 40) * 0.7);
-    const scale = R / range; // css px per metre
+    const scale = EDGE / range; // css px per metre
     const k = MAP.size / (MAP.extent * 2); // map px per metre
     g.translate(W / 2, W / 2);
     g.rotate(s.heading);
-    g.globalAlpha = 0.95;
+    g.globalAlpha = 0.72;
     g.drawImage(this.mapImage, -toMap(s.x) * (scale / k), -toMap(s.z) * (scale / k), MAP.size * (scale / k), MAP.size * (scale / k));
     g.globalAlpha = 1;
     // the route to the waypoint, as a satnav draws it: a bright line with a dark casing
@@ -304,8 +311,8 @@ export class Hud {
     for (const m of s.mapMarkers || []) {
       let dx = (m.x - s.x) * scale, dz = (m.z - s.z) * scale;
       const d = Math.hypot(dx, dz);
-      const edge = d > R - 8;
-      if (edge) { dx *= (R - 8) / d; dz *= (R - 8) / d; }
+      const edge = d > EDGE;
+      if (edge) { dx *= EDGE / d; dz *= EDGE / d; }
       if (edge && !m.pin) continue;
       g.save();
       g.translate(dx, dz);
@@ -316,17 +323,48 @@ export class Hud {
       g.restore();
     }
     g.restore();
-    // rim, north, player
-    g.strokeStyle = 'rgba(150,225,255,0.3)';
+    // instruments over it: an inner glow, a range ring, compass ticks turning with the heading, a slow sweep
+    const cx = W / 2;
+    const glow = g.createRadialGradient(cx, cx, R * 0.55, cx, cx, R * 0.9);
+    glow.addColorStop(0, 'rgba(59, 232, 255, 0)');
+    glow.addColorStop(1, 'rgba(59, 232, 255, 0.16)');
+    g.fillStyle = glow;
+    g.beginPath(); g.arc(cx, cx, R * 0.9, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(150, 225, 255, 0.22)';
     g.lineWidth = 1;
-    g.beginPath(); g.arc(W / 2, W / 2, R, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([2, 5]);
+    g.beginPath(); g.arc(cx, cx, EDGE / 2, 0, Math.PI * 2); g.stroke();
+    g.setLineDash([]);
+    g.strokeStyle = 'rgba(150, 225, 255, 0.35)';
+    g.beginPath(); g.arc(cx, cx, EDGE + 6, 0, Math.PI * 2); g.stroke();
+    for (let a = 0; a < 360; a += 15) {
+      const t = (a * Math.PI) / 180 - Math.PI / 2 + s.heading, long = a % 90 === 0;
+      g.strokeStyle = long ? 'rgba(59, 232, 255, 0.8)' : 'rgba(150, 225, 255, 0.35)';
+      g.lineWidth = long ? 2 : 1;
+      g.beginPath();
+      g.moveTo(cx + Math.cos(t) * (EDGE + 6), cx + Math.sin(t) * (EDGE + 6));
+      g.lineTo(cx + Math.cos(t) * (EDGE + (long ? 16 : 11)), cx + Math.sin(t) * (EDGE + (long ? 16 : 11)));
+      g.stroke();
+    }
+    const sweep = (performance.now() / 1000) * 1.2;
+    const sw = g.createConicGradient ? g.createConicGradient(sweep - 0.9, cx, cx) : null;
+    if (sw) {
+      sw.addColorStop(0, 'rgba(59, 232, 255, 0)');
+      sw.addColorStop(0.14, 'rgba(59, 232, 255, 0.12)');
+      sw.addColorStop(0.142, 'rgba(59, 232, 255, 0)');
+      g.fillStyle = sw;
+      g.beginPath(); g.arc(cx, cx, EDGE + 6, 0, Math.PI * 2); g.fill();
+    }
     const na = -Math.PI / 2 + s.heading;
-    g.fillStyle = INK; g.font = '600 10px "Oxanium Variable"'; g.textAlign = 'center';
-    g.fillText('N', W / 2 + Math.cos(na) * (R - 10), W / 2 + Math.sin(na) * (R - 10) + 3);
+    g.fillStyle = CYAN; g.font = '600 11px "Oxanium Variable"'; g.textAlign = 'center';
+    g.fillText('N', cx + Math.cos(na) * (EDGE - 10), cx + Math.sin(na) * (EDGE - 10) + 4);
+    // the player
     g.fillStyle = CYAN;
-    g.beginPath(); g.moveTo(W / 2, W / 2 - 8); g.lineTo(W / 2 + 5, W / 2 + 6); g.lineTo(W / 2, W / 2 + 3); g.lineTo(W / 2 - 5, W / 2 + 6); g.closePath(); g.fill();
-    g.fillStyle = DIM; g.font = '9px "JetBrains Mono Variable"'; g.textAlign = 'right';
-    g.fillText(`${Math.round(range)}M`, W - 8, W - 6);
+    g.shadowColor = CYAN; g.shadowBlur = 10;
+    g.beginPath(); g.moveTo(cx, cx - 9); g.lineTo(cx + 6, cx + 7); g.lineTo(cx, cx + 3); g.lineTo(cx - 6, cx + 7); g.closePath(); g.fill();
+    g.shadowBlur = 0;
+    g.fillStyle = DIM; g.font = '9px "JetBrains Mono Variable"'; g.textAlign = 'center';
+    g.fillText(`${Math.round(range)}M`, cx, cx + EDGE / 2 + 12);
   }
 }
 
