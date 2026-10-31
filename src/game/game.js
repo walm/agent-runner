@@ -27,7 +27,7 @@ const RADIO = {
 
 export class Game {
   constructor(o) {
-    Object.assign(this, o); // city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, agents, touch
+    Object.assign(this, o); // city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, agents, nav, touch
     this.waypointAgent = null; // the agent the waypoint leads to, if any
     this.nearAgent = null;
     this.state = 'loading';
@@ -194,6 +194,7 @@ export class Game {
     k.events.length = 0;
 
     if (this.state === 'run') this.updateRun(dt);
+    this.nav?.update(this.waypoint && !this.run ? this.waypoint : null, k.pos, k.fwd.x, k.fwd.z, performance.now(), dt);
     this.updateShards();
     this.updateWorldFlags();
     this.updateHud(dt, c);
@@ -350,7 +351,7 @@ export class Game {
     this.hud.update({
       speed: k.speed, boost: k.boosting ? 1 : Math.min(1, k.boostHeat || 0), mode: k.mode, lane, district: this.district,
       bearing, heading: -bearing / DEG, x: k.pos.x, z: k.pos.z, alt: k.pos.y, groundY: groundAt(this.city, k.pos.x, k.pos.z, k.pos.y), vy: k.vel.y,
-      markers, mapMarkers,
+      markers, mapMarkers, route: this.nav?.line(),
     }, dt);
   }
 
@@ -362,6 +363,6 @@ export class Game {
     if (this.waypoint) markers.push({ x: this.waypoint.x, z: this.waypoint.z, color: '#3be8ff', shape: 'ring' });
     if (this.run) this.run.def.gates.slice(this.run.gate).forEach((g) => markers.push({ x: g.x, z: g.z, color: '#ff3df2', shape: 'ring' }));
     this.camera.getWorldDirection(this.dir);
-    return { markers, player: { x: this.kite.pos.x, z: this.kite.pos.z, bearing: Math.atan2(this.dir.x, -this.dir.z) } };
+    return { markers, route: this.nav?.line(), player: { x: this.kite.pos.x, z: this.kite.pos.z, bearing: Math.atan2(this.dir.x, -this.dir.z) } };
   }
 }

@@ -298,6 +298,8 @@ export class Hud {
     g.globalAlpha = 0.95;
     g.drawImage(this.mapImage, -toMap(s.x) * (scale / k), -toMap(s.z) * (scale / k), MAP.size * (scale / k), MAP.size * (scale / k));
     g.globalAlpha = 1;
+    // the route to the waypoint, as a satnav draws it: a bright line with a dark casing
+    if (s.route) route(g, s.route, (p) => [(p.x - s.x) * scale, (p.z - s.z) * scale], 7, 4);
     // markers in world space
     for (const m of s.mapMarkers || []) {
       let dx = (m.x - s.x) * scale, dz = (m.z - s.z) * scale;
@@ -326,6 +328,24 @@ export class Hud {
     g.fillStyle = DIM; g.font = '9px "JetBrains Mono Variable"'; g.textAlign = 'right';
     g.fillText(`${Math.round(range)}M`, W - 8, W - 6);
   }
+}
+
+// a route line on a map canvas; at(p) gives the canvas point for a world point
+export function route(g, pts, at, casing, width) {
+  g.save();
+  g.lineJoin = 'round';
+  g.lineCap = 'round';
+  g.beginPath();
+  pts.forEach((p, i) => { const [x, y] = at(p); if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+  g.strokeStyle = 'rgba(2, 20, 30, 0.85)';
+  g.lineWidth = casing;
+  g.stroke();
+  g.strokeStyle = '#3be8ff';
+  g.shadowColor = '#3be8ff';
+  g.shadowBlur = 8;
+  g.lineWidth = width;
+  g.stroke();
+  g.restore();
 }
 
 export function fmtTime(t) {

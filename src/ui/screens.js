@@ -1,6 +1,6 @@
 // Title, pause (settings, controls, runs), full map and run results.
 import { MAP, toMap, districtLabels } from './citymap.js';
-import { fmtTime } from './hud.js';
+import { fmtTime, route } from './hud.js';
 import { CITY } from '../city/layout.js';
 
 const CONTROLS = [
@@ -265,6 +265,7 @@ export class Screens {
       g.font = `600 ${Math.round(9 + this.view.zoom * 1.5)}px "Oxanium Variable", sans-serif`;
       g.fillText(d.en.split('').join(String.fromCharCode(8202)), W(d.x), Z(d.z));
     }
+    if (state.route) route(g, state.route, (p) => [W(p.x), Z(p.z)], 8, 4);
     // markers
     for (const m of state.markers) {
       g.save();

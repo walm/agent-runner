@@ -24,7 +24,8 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 |---|---|
 | `G` or click the **AGENTS** counter | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. |
 | Pull up in the ring at the kerb, or fly into the agent's beam | A card shows who the agent is and what it last said; `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `↑ ↓` `PgUp PgDn` `Home End` (or a gamepad's sticks, d-pad, LB / RB) read back; `Esc` (or B) to leave. |
-| `M` | City map with every agent marked by status. |
+| `M` | City map with every agent marked by status. Click to set a waypoint. |
+| A waypoint | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are. |
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
 
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
@@ -147,6 +148,7 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · mock.mjs
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
                labels (name tags) · panel (the G list) · terminal (xterm.js) · agents (glue to the game)
+src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
 integrations/  claude-code · codex · generic
 ```

@@ -42,6 +42,8 @@ import { Traffic } from './life/traffic.js';
 import { SkyTraffic } from './life/skytraffic.js';
 import { AgentLayer } from './agents/agents.js';
 import { VRMode, vrSupported } from './xr/vr.js';
+import { Nav } from './game/nav.js';
+import { NavVisuals } from './game/navvis.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -208,6 +210,9 @@ async function boot() {
   // built before the warm-up so its beacons compile with everything else
   const agents = new AgentLayer({ city, ui, screens, hud });
   scene.add(agents.group);
+  const nav = new Nav(city);
+  const navVis = new NavVisuals();
+  scene.add(navVis.group);
   const touchUi = createTouch(ui, input);
   const fade = ui.querySelector('#fade');
   const attract = new Attract(camera, kite, city, fade);
@@ -232,7 +237,7 @@ async function boot() {
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
     if (k === 'shake' || k === 'all') rig.shakeScale = settings.shake;
   }
-  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents });
+  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
   agents.bind(game);
   // a lighter VR city (the tiers are in xr/vr.js): modelled facades and shopfronts only close by (the photo facades
   // take over sooner), Temple Street's props at lower detail, no sky traffic, thinner rain; null puts it all back
@@ -339,6 +344,7 @@ async function boot() {
     else game.update(dt);
     const view = vr.update(dt, now) || camera;
     agents.update(view, kite);
+    navVis.update(nav, kite, view, game.state === 'play' && !fly.enabled, game.waypointAgent ? agents.entries.get(game.waypointAgent)?.agent.name ?? 'WAYPOINT' : 'WAYPOINT');
     lightning.update(dt, view.position);
     U.carPos.value.copy(kite.pos);
     U.carFwd.value.copy(kite.fwd);
@@ -372,7 +378,7 @@ async function boot() {
   if (params.get('agent')) { if (game.state === 'title') game.startFree(); agents.warpWhenSeen(params.get('agent')); }
   if (touch) game.touchUi = touchUi;
 
-  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, vr, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
+  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, nav, vr, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
 }
 
 boot().catch((e) => {

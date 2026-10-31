@@ -349,12 +349,14 @@ export class VRMode {
     for (const { agent } of a.entries.values()) if (agent.status === 'waiting' || agent.status === 'error') need++;
     let target = null;
     if (g.waypoint) {
-      const dx = g.waypoint.x - k.pos.x, dz = g.waypoint.z - k.pos.z;
+      // along the route where there is one: the arrow points down the street to take, not over the roofs
+      const aim = g.nav?.lookahead() || g.waypoint;
+      const dx = aim.x - k.pos.x, dz = aim.z - k.pos.z;
       // bearing of the waypoint against the car's nose (-z rotated by yaw), clockwise on the dash
       let rel = Math.atan2(-dx, -dz) - k.yaw;
       rel = -Math.atan2(Math.sin(rel), Math.cos(rel));
       const e = g.waypointAgent && a.entries.get(g.waypointAgent);
-      target = { name: e ? e.agent.name : 'WAYPOINT', dist: Math.hypot(dx, dz), rel, color: e ? styleOf(e.agent.status).css : '#3be8ff' };
+      target = { name: e ? e.agent.name : 'WAYPOINT', dist: g.nav?.maneuver?.total ?? Math.hypot(g.waypoint.x - k.pos.x, g.waypoint.z - k.pos.z), rel, color: e ? styleOf(e.agent.status).css : '#3be8ff' };
     }
     let prompt = null;
     if (g.nearRun !== null && g.nearRun !== undefined) prompt = `A  START ${g.runs[g.nearRun].en}`;
