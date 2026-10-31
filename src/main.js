@@ -45,7 +45,7 @@ import { VRMode, vrSupported } from './xr/vr.js';
 
 const params = new URLSearchParams(location.search);
 
-const DEFAULTS = { quality: 'auto', rain: 1, volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
+const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nz.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }
@@ -101,7 +101,8 @@ async function boot() {
   // A headset draws without the post chain (and its FXAA), so the canvas gets MSAA instead.
   const webxr = !params.has('flat') && (await vrSupported());
   const webgpu = !!navigator.gpu && !params.has('webgl') && !(webxr && typeof XRGPUBinding === 'undefined');
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: webxr, powerPreference: 'high-performance', reversedDepthBuffer: webgpu, forceWebGL: !webgpu });
+  // multiview draws both eyes in one pass (OVR_multiview2, on the Quest); ?nomv turns it off
+  const renderer = new THREE.WebGPURenderer({ canvas, antialias: webxr, multiview: webxr && !params.has('nomv'), powerPreference: 'high-performance', reversedDepthBuffer: webgpu, forceWebGL: !webgpu });
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   renderer.setPixelRatio(dpr);
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -221,6 +222,11 @@ async function boot() {
       rain.setQuality(q === 'low' ? 0.45 : q === 'medium' ? 0.75 : 1);
     }
     if (k === 'rain' || k === 'all') { U.rain.value = settings.rain; rain.group.visible = settings.rain > 0; }
+    if (k === 'traffic' || k === 'all') {
+      traffic.density = settings.traffic;
+      traffic.group.visible = settings.traffic > 0;
+      sky2.group.visible = settings.traffic > 0 && !vr.tier;
+    }
     if (k === 'volume' || k === 'music' || k === 'all') sound.applySettings();
     if (k === 'fov' || k === 'all') rig.fovBase = settings.fov;
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
@@ -228,20 +234,33 @@ async function boot() {
   }
   game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents });
   agents.bind(game);
-  // the light VR city: modelled facades only close by (the photo facades take over sooner), no sky traffic,
-  // thinner rain
-  function vrProfile(light) {
-    U.kitNear.value = light ? 60 : 180;
+  // a lighter VR city (the tiers are in xr/vr.js): modelled facades and shopfronts only close by (the photo facades
+  // take over sooner), Temple Street's props at lower detail, no sky traffic, thinner rain; null puts it all back
+  const full = { kitNear: U.kitNear.value, lod0: facadeKit.lod0, shopNear: U.shopNear.value, props: 1, carLod: traffic.lodNear };
+  function vrProfile(t) {
+    const p = t || full;
+    U.kitNear.value = p.kitNear;
+    facadeKit.lod0 = p.lod0;
+    U.shopNear.value = p.shopNear;
     facadeKit.update(U.kitCenter.value.clone(), true);
-    sky2.group.visible = !light;
-    if (light) rain.setQuality(0.45);
-    else {
+    shopKit.list(U.kitCenter.value);
+    district.setDetail(p.props);
+    traffic.lodNear = p.carLod;
+    for (const g of [signs.group, ads.group]) {
+      g.userData.maxDist = t ? t.signs / t.cull : Infinity; // cullChunks scales it by t.cull again
+      if (!t) for (const m of g.children) m.visible = true;
+    }
+    if (t) {
+      sky2.group.visible = false;
+      rain.setQuality(t.rain);
+    } else {
       camera.far = 12000;
       camera.updateProjectionMatrix();
       applySetting('quality');
+      applySetting('traffic');
     }
   }
-  const vr = new VRMode({ renderer, scene, camera, ui, kite, rig, input, hud, ground, post, profile: vrProfile });
+  const vr = new VRMode({ renderer, scene, camera, ui, kite, rig, input, hud, ground, post, settings, profile: vrProfile });
   vr.bind(game, agents);
   applySetting('all');
 
@@ -304,7 +323,9 @@ async function boot() {
   let prevCam = camera.position.clone();
   const t0 = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000);
+    // the frame that ends a headset session can come without a time, and the XR frame clock need not be the page's
+    if (!Number.isFinite(now)) now = performance.now();
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
     // in a headset the camera sits in the car's seat: everything that follows the eye follows vr.head instead
     const xr = vr.presenting;
     if (!xr) gov.tick(now - last);
@@ -327,7 +348,7 @@ async function boot() {
     sky.update(view);
     if (facadeKit.update(view.position)) shopKit.list(U.kitCenter.value);
     district.update(view);
-    cullChunks(scene, view.position);
+    cullChunks(scene, view.position, xr && vr.tier ? vr.tier.cull : 1);
     clouds.update(view);
     probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], xr ? vr.probeFaces() : 2);
     if (xr) vr.render();

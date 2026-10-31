@@ -98,7 +98,7 @@ export class Dash extends Panel {
   update(now, s) {
     const toast = this.toast && now < this.toast.until ? this.toast : null;
     const key = [Math.round(s.speed * 3.6), Math.round(s.alt), s.mode, s.agents, s.need, s.linked, s.target && `${s.target.name}|${Math.round(s.target.dist / 5)}|${Math.round(s.target.rel * 30)}|${s.target.color}`,
-      s.prompt, toast && toast.text, s.view].join('|');
+      s.prompt, toast && toast.text, s.view, s.fps].join('|');
     this.paint(key, now, (ctx, w, h) => {
       sheet(ctx, w, h);
       // speed and altitude
@@ -111,6 +111,7 @@ export class Dash extends Panel {
       text(ctx, 'AGENTS', w - 196, 70, { size: 22, color: DIM, spacing: 6 });
       text(ctx, s.agents, w - 40, 72, { size: 40, font: MONO, weight: 400, align: 'right' });
       if (s.need) text(ctx, `${s.need} NEED${s.need === 1 ? 'S' : ''} YOU`, w - 40, 110, { size: 22, color: MAG, spacing: 5, align: 'right' });
+      text(ctx, `${s.fps} FPS`, w - 40, 196, { size: 20, font: MONO, weight: 400, color: FAINT, align: 'right' });
       // the way to the waypoint: an arrow turned by its bearing relative to the car's heading
       if (s.target) {
         const cx = 400, cy = 116;

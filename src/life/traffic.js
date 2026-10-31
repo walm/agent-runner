@@ -166,6 +166,8 @@ export class Traffic {
       this.cars.push({ active: false, type: ti, lane: null, s: 0, v: 0, vmax: 0, brake: 0, variant: this.rng(), seed: this.rng(), x: 0, z: 0, yaw: 0 });
     }
     this.time = 0;
+    this.density = 1; // the TRAFFIC setting: a share of the believable density below
+    this.lodNear = LOD_NEAR;
   }
 
   // the models arrive after construction; until then nothing is drawn but the simulation runs
@@ -246,7 +248,7 @@ export class Traffic {
     this.lastCam = (this.lastCam || new THREE.Vector3()).copy(camPos);
     this.avoid = kite && kite.pos.y - kite.groundY < 3 ? kite.pos : null;
     // a believable density: about one car per 40 m of lane at street level, more when the view is wide
-    const maxActive = Math.min(this.cars.length, Math.round(180 + (R - 260) * 0.58));
+    const maxActive = Math.min(this.cars.length, Math.round((180 + (R - 260) * 0.58) * this.density));
     let active = 0;
     const byLane = new Map();
     for (const car of this.cars) {
@@ -335,7 +337,7 @@ export class Traffic {
       const yaw = ln.axis === 'z' ? (ln.dir > 0 ? Math.PI : 0) : ln.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
       car.x = x; car.z = z; car.yaw = yaw;
       const dx = x - camPos.x, dy = camPos.y, dz = z - camPos.z;
-      const lod = dx * dx + dy * dy + dz * dz < LOD_NEAR * LOD_NEAR ? 0 : 1;
+      const lod = dx * dx + dy * dy + dz * dz < this.lodNear * this.lodNear ? 0 : 1;
       const m = this.meshes[car.type][lod];
       const i = counts[car.type][lod]++;
       const bob = Math.sin(simTime * 2.1 + car.seed * 40) * 0.012;

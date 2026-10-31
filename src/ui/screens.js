@@ -164,6 +164,8 @@ export class Screens {
       body = `
         <div class="row"><span>QUALITY</span>${seg('quality', [['auto', 'AUTO'], ['high', 'HIGH'], ['medium', 'MEDIUM'], ['low', 'LOW']])}</div>
         <div class="row"><span>RAIN</span>${seg('rain', [[1, 'STORM'], [0.6, 'STEADY'], [0.25, 'DRIZZLE'], [0, 'OFF']])}</div>
+        <div class="row"><span>TRAFFIC</span>${seg('traffic', [[1, 'BUSY'], [0.5, 'HALF'], [0.2, 'QUIET'], [0, 'OFF']])}</div>
+        <div class="row"><span>VR DETAIL</span>${seg('vrDetail', [['auto', 'AUTO'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']])}</div>
         <div class="row"><span>MASTER VOLUME</span><span>${slider('volume', 0, 1, 0.05)}</span></div>
         <div class="row"><span>MUSIC</span><span>${slider('music', 0, 1, 0.05)}</span></div>
         <div class="row"><span>FIELD OF VIEW</span><span>${slider('fov', 50, 80, 1)}</span></div>

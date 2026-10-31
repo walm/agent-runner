@@ -14,11 +14,29 @@ import './xr.css';
 // where the head sits, in the car's frame (x right, y up, -z ahead); 'local' space puts the head at the origin
 const SEATS = { seat: new THREE.Vector3(0, 1.3, 0.1), chase: new THREE.Vector3(0, 3.1, 8.5) };
 const DZ = 0.15; // stick dead zone
-// A standalone headset (a phone-class GPU drawing two eyes at 72-90 Hz) gets the light city; a PC headset the full
-// one. ?vr=light or ?vr=full overrides.
+// What each VR DETAIL setting keeps of the city (main.js applies it; null is the whole city, as on the screen):
+//   scale     share of the headset's recommended resolution
+//   kitNear   metres of modelled facades, all at the low level of detail when lod0 is 0
+//   shopNear  metres of modelled shopfronts
+//   props     Temple Street's props: their level-of-detail distances and their end, as a share
+//   carLod    metres of full-detail traffic
+//   far       the far plane at street level; it grows with altitude
+//   probe     frames per face of the car's reflection cube (each face is another view of the city)
+//   cull      the small props' cull distances (lamps, awnings, roof clutter), as a share
+//   signs     metres of neon signs and ad screens
+const TIERS = {
+  low: { scale: 0.75, kitNear: 0, lod0: 0, shopNear: 40, props: 0.35, carLod: 25, rain: 0.3, far: 1500, probe: 8, cull: 0.35, signs: 450, liteCar: true },
+  medium: { scale: 0.9, kitNear: 60, lod0: 0, shopNear: 70, props: 0.6, carLod: 45, rain: 0.45, far: 2000, probe: 4, cull: 0.6, signs: 900, liteCar: true },
+  high: null,
+};
+// A standalone headset (a phone-class GPU drawing two eyes at 72-90 Hz) starts on LOW, a PC headset on HIGH.
+// ?vr=low|medium|high overrides the setting.
 const PARAM = new URLSearchParams(location.search).get('vr');
 const STANDALONE = /OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent);
-const LIGHT = PARAM === 'light' || (PARAM !== 'full' && STANDALONE);
+export function vrTier(setting) {
+  const t = PARAM in TIERS ? PARAM : setting in TIERS ? setting : STANDALONE ? 'low' : 'high';
+  return { name: t, cfg: TIERS[t] };
+}
 
 export async function vrSupported() {
   try { return !!navigator.xr && (await navigator.xr.isSessionSupported('immersive-vr')); } catch { return false; }
@@ -27,11 +45,13 @@ export async function vrSupported() {
 const dz = (v) => (Math.abs(v) < DZ ? 0 : (v - Math.sign(v) * DZ) / (1 - DZ));
 
 export class VRMode {
-  // profile(light): main.js switches the costly parts of the city off (true) or back as they were (false)
-  constructor({ renderer, scene, camera, ui, kite, rig, input, hud, ground, post, profile }) {
-    Object.assign(this, { renderer, scene, camera, kite, rig, input, hud, ground, post, profile });
-    this.light = LIGHT;
+  // profile(tier): main.js trims the city to a tier of TIERS, or puts it back as it was (null)
+  constructor({ renderer, scene, camera, ui, kite, rig, input, hud, ground, post, settings, profile }) {
+    Object.assign(this, { renderer, scene, camera, kite, rig, input, hud, ground, post, settings, profile });
+    this.tier = null; // the TIERS entry in use while presenting
     this.frames = 0;
+    this.fps = 0;
+    this.lastNow = 0;
     this.game = null;
     this.agents = null;
     this.view = 'seat';
@@ -117,6 +137,10 @@ export class VRMode {
     }
     this.session = session;
     session.addEventListener('end', () => this.exit());
+    const tier = vrTier(this.settings.vrDetail);
+    this.tier = tier.cfg;
+    // the resolution is fixed when the session's layer is made
+    this.renderer.xr.setFramebufferScaleFactor(tier.cfg ? tier.cfg.scale : 1);
     // the frame loop starts inside setSession: show the notice until the stereo shaders are built
     this.warming = true;
     try {
@@ -127,10 +151,10 @@ export class VRMode {
       session.end();
       return;
     }
-    this.enter();
     const t0 = performance.now();
+    await this.enter();
     await this.warm();
-    console.info(`VR: shaders ready in ${Math.round(performance.now() - t0)} ms`);
+    console.info(`VR: ${tier.name} detail, multiview ${this.renderer.xr.useMultiview()}, ready in ${Math.round(performance.now() - t0)} ms`);
     if (this.session === session) this.warming = false;
   }
 
@@ -153,7 +177,7 @@ export class VRMode {
   // faces of the car's reflection cube to redraw this frame: each one is a whole extra view of the city
   probeFaces() {
     this.frames++;
-    return !this.light ? 2 : this.frames % 4 === 0 ? 1 : 0;
+    return !this.tier ? 2 : this.frames % this.tier.probe === 0 ? 1 : 0;
   }
 
   // the frame's draw: the notice while warming, else the city
@@ -165,7 +189,7 @@ export class VRMode {
     } else this.renderer.render(this.scene, this.camera);
   }
 
-  enter() {
+  async enter() {
     const g = this.game;
     this.presenting = true;
     this.button.textContent = 'EXIT VR';
@@ -185,7 +209,8 @@ export class VRMode {
     this.tags.group.visible = true;
     this.dash.show(true);
     this.ground.uReflOn.value = 0;
-    if (this.light) this.profile(true);
+    this.profile(this.tier);
+    if (this.tier?.liteCar) await this.kite.model.userData.setLite(true);
     this.dash.message('WELCOME TO THE CITY · X FOR AGENTS', 'cyan');
   }
 
@@ -196,7 +221,11 @@ export class VRMode {
     this.camera.removeFromParent(); // the chase rig places it in world space again from the next frame
     this.rig.xr = false;
     this.renderer.toneMappingExposure = 1;
-    if (this.light) this.profile(false);
+    if (this.tier) {
+      this.profile(null);
+      if (this.tier.liteCar) this.kite.model.userData.setLite(false);
+      this.tier = null;
+    }
     this.rig.snap = true;
     this.agents.inVR = false;
     this.agents.term.fixed = null;
@@ -268,6 +297,10 @@ export class VRMode {
   // ---- per frame, after the game: the seat, the head, the panels ----
   update(dt, now) {
     if (!this.presenting) return null;
+    // the game's dt is capped at 50 ms; the dash's frame rate is not
+    const ms = now - this.lastNow;
+    this.lastNow = now;
+    if (ms > 0 && ms < 1000) this.fps += (1000 / ms - this.fps) * 0.05;
     const k = this.kite, s = SEATS[this.view];
     const cy = Math.cos(k.yaw), sy = Math.sin(k.yaw);
     this.seat.position.set(k.pos.x + s.x * cy + s.z * sy, k.pos.y + s.y, k.pos.z - s.x * sy + s.z * cy);
@@ -283,9 +316,9 @@ export class VRMode {
     this.head.matrix.decompose(this.head.position, this.head.quaternion, this.head.scale);
     this.head.projectionMatrix.copy(xc.projectionMatrix);
     this.head.projectionMatrixInverse.copy(xc.projectionMatrixInverse);
-    // light: the haze hides the far city at street level, less so up high, so the far plane grows with altitude
-    if (this.light) {
-      const far = Math.min(12000, 2000 + Math.round(Math.max(0, k.pos.y) / 25) * 250);
+    // the haze hides the far city at street level, less so up high, so the far plane grows with altitude
+    if (this.tier) {
+      const far = Math.min(12000, this.tier.far + Math.round(Math.max(0, k.pos.y) / 25) * 250);
       if (far !== this.camera.far) { this.camera.far = far; this.camera.updateProjectionMatrix(); }
     }
     this.head.near = this.camera.near;
@@ -326,6 +359,6 @@ export class VRMode {
     let prompt = null;
     if (g.nearRun !== null && g.nearRun !== undefined) prompt = `A  START ${g.runs[g.nearRun].en}`;
     else if (a.near) prompt = `A  OPEN TERMINAL · ${a.near.agent.name}`;
-    return { speed: k.speed, alt: k.pos.y, mode: k.mode, agents: a.entries.size, need, linked: a.feed.connected, target, prompt, view: this.view };
+    return { speed: k.speed, alt: k.pos.y, mode: k.mode, agents: a.entries.size, need, linked: a.feed.connected, target, prompt, view: this.view, fps: Math.round(this.fps) };
   }
 }

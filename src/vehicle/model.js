@@ -246,6 +246,31 @@ export function createKiteModel(env) {
     root.userData.tris = tris;
   };
 
+  // the light VR city: the same car at about a sixth of its 0.7M triangles (from the seat it is mostly out of view,
+  // and a standalone headset draws it twice a frame). Simplified on first use; the vertices are shared.
+  let lite = null;
+  root.userData.setLite = async (on) => {
+    const meshes = [];
+    root.traverse((o) => { if (o.isMesh && o.name.startsWith('kite-')) meshes.push(o); });
+    if (on && !lite) {
+      const { MeshoptSimplifier: S } = await import('meshoptimizer');
+      await S.ready;
+      lite = new Map();
+      for (const m of meshes) {
+        const full = m.geometry, index = new Uint32Array(full.index.array);
+        const target = Math.max(3, Math.floor((index.length / 3) * 0.15) * 3);
+        // permissive: the car's hard edges split its vertices, and without it those seams would hold half the mesh
+        const [idx] = S.simplify(index, full.attributes.position.array, 3, target, 0.01, ['Permissive', 'Prune']);
+        const g = new THREE.BufferGeometry();
+        for (const [k, a] of Object.entries(full.attributes)) g.setAttribute(k, a);
+        g.setIndex(new THREE.BufferAttribute(idx, 1));
+        g.boundingSphere = full.boundingSphere;
+        lite.set(m, { full, lite: g });
+      }
+    }
+    if (lite) for (const [m, g] of lite) m.geometry = on ? g.lite : g.full;
+  };
+
   root.userData.uniforms = { accent, brake, boost, fanSpin };
   return root;
 }

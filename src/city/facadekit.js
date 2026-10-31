@@ -21,7 +21,7 @@ import BROWN from './kit_brown.json';
 import PROC from './kit_proc.json';
 
 const KITS = [{ name: 'brown', meta: BROWN }, { name: 'proc', meta: PROC }];
-const LOD0 = 70; // full detail inside this; the authored low level of detail beyond
+const LOD0 = 70; // full detail inside this; the authored low level of detail beyond (the light VR city: nowhere)
 export const MOVE = 6; // metres the camera travels before the cells are re-listed
 const NORM = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
@@ -135,7 +135,7 @@ export function createFacadeKit(city, kits, facades, lightmap, tex) {
       // a metre inside the shader's threshold: a stepped-back wall without cells is fine, cells on a full wall are not
       if (d >= U.kitNear.value - 1) continue;
       const recs = T.recs || (T.recs = place(T));
-      const list = T.kit.batch[d < LOD0 ? 0 : 1];
+      const list = T.kit.batch[d < api.lod0 ? 0 : 1];
       // faces the camera is well behind stay hidden until the next re-list
       for (let f = 0; f < 4; f++) front[f] = (cam.x - t.x - NORM[f][0] * t.w / 2) * NORM[f][0] + (cam.z - t.z - NORM[f][1] * t.d / 2) * NORM[f][1] > -MOVE;
       for (let i = 0; i < recs.length; i += 13) if (front[recs[i + 5]]) list[recs[i]]?.push(recs, i + 1);
@@ -144,7 +144,8 @@ export function createFacadeKit(city, kits, facades, lightmap, tex) {
     return true;
   }
 
-  return { group, update, tiers };
+  const api = { group, update, tiers, lod0: LOD0 };
+  return api;
 }
 
 export function makeBatch(src, material) {

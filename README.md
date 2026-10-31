@@ -25,7 +25,7 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | `G` or click the **AGENTS** counter | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. |
 | Pull up in the ring at the kerb | `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `Esc` to leave. |
 | `M` | City map with every agent marked by status. |
-| WASD / Space / C / Shift | Drive, climb, descend, boost (as in Neon Zenith). |
+| WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
 
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
 
@@ -79,9 +79,17 @@ What differs from the screen:
 - **No post chain in a headset** (no bloom, grade or wet-street mirror; three.js turns screen-space passes off in
   XR). The scene is tone-mapped by the renderer, a little brighter to make up for the missing bloom.
 - **WebGL**: WebXR over WebGPU is not in any headset browser yet, so with a headset present the game starts on WebGL.
-- **A light city on standalone headsets** (Quest, Pico): modelled facades only within 60 m, no sky traffic, a
-  shorter far plane, thinner rain, a slower car-reflection probe. About a third of the full city's triangles.
-  `?vr=full` or `?vr=light` overrides.
+- **Multiview**: both eyes are drawn in one pass where the browser has `OVR_multiview2` (the Quest does). `?nomv`
+  turns it off.
+- **VR DETAIL** (Settings): what a headset gets of the city. AUTO is LOW on a standalone headset (Quest, Pico) and
+  HIGH on a PC headset; `?vr=low|medium|high` overrides it.
+  - LOW: 75% resolution, photo facades only (no modelled ones), shopfronts within 40 m, Temple Street's props at
+    lower detail, a simplified car, no sky traffic, thinner rain, a shorter far plane, a slow car-reflection probe.
+  - MEDIUM: 90% resolution, low-detail modelled facades within 60 m, shopfronts within 70 m, the rest as LOW but
+    less so.
+  - HIGH: the whole city.
+
+  The dash shows the frame rate. TRAFFIC (Settings) thins out the other cars, on the screen too.
 - **A wait on entering**: every shader is built again for the headset in the background, about 25–35 s on a Mac.
   It shows a notice in the meantime.
 

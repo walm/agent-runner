@@ -187,7 +187,7 @@ export function createDistrict(data) {
 
   const props = createProps(data);
   group.add(props.group);
-  return { group, update: props.update, warm: props.warm, materials: cache.size };
+  return { group, update: props.update, warm: props.warm, setDetail: props.setDetail, materials: cache.size };
 }
 
 // ---------------------------------------------------------------- instanced props, one list per level of detail
@@ -248,6 +248,9 @@ function createProps(data) {
   }
 
   let last = new THREE.Vector3(1e9, 0, 0), frame = 0;
+  // the light VR city pulls every level of detail, and the end of the props, in toward the camera
+  let detail = 1;
+  const setDetail = (f) => { detail = f; last.set(1e9, 0, 0); };
   // the boot warm-up draws one of every level, so no level's buffers or pipeline wait for its first close pass
   const warm = () => {
     for (const s of sets) for (const L of s.levels) {
@@ -269,8 +272,8 @@ function createProps(data) {
       for (const it of s.items) {
         const dx = it[0] - cx, dy = it[1] - cy, dz = it[2] - cz;
         const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (d > 900) continue;
-        const li = Math.min(s.levels.length - 1, d < s.d0 ? 0 : d < s.d1 ? 1 : 2);
+        if (d > 900 * detail) continue;
+        const li = Math.min(s.levels.length - 1, d < s.d0 * detail ? 0 : d < s.d1 * detail ? 1 : 2);
         const L = s.levels[li], k = counts[li]++;
         _m.compose(_v.set(it[0], it[1], it[2]), _q.setFromAxisAngle(_up, it[3]), _s);
         _m.toArray(L.matrix.array, k * 16);
@@ -287,5 +290,5 @@ function createProps(data) {
       });
     }
   };
-  return { group, update, warm };
+  return { group, update, warm, setDetail };
 }

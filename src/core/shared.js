@@ -22,6 +22,7 @@ export const U = {
   // where the facade kit last chose its detailed buildings; boxes and kit both measure from here
   kitCenter: uniform(new THREE.Vector3(0, -1e5, 0)),
   kitNear: uniform(180), // metres from kitCenter that wear modelled facades (city/buildings.js); the light VR city shrinks it
+  shopNear: uniform(110), // metres from kitCenter that get modelled shopfronts (city/shopkit.js); the same
 };
 
 // tileable 4-channel value-noise fbm: r coarse, g fine grain, b mid, a vertically stretched streaks

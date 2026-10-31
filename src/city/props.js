@@ -6,7 +6,7 @@ import {
 } from 'three/tsl';
 import { U, noiseTex } from '../core/shared.js';
 import { chunkedInstances, iPR, iS } from './instancing.js';
-import { shopFit, SHOP_NEAR } from './shopkit.js';
+import { shopFit } from './shopkit.js';
 import { streetLight } from './lightmap.js';
 import { LAYER_NOREFL } from './ground.js';
 import SHOP from './shops.json';
@@ -67,7 +67,7 @@ export function createProps(city, tex, lightmap) {
     const lintel = vec3(0.045, 0.045, 0.05).mul(texture(noiseTex, vec2(lx, ly).div(7)).r.mul(0.5).add(0.75));
     const wallCol = mix(lintel, sA.mul(0.85), front);
     const shopLit = sA.mul(sM.r.mul(warmI).mul(1.9).mul(open).add(sM.g.mul(mix(float(0.5), float(1.1), open)))).mul(front);
-    const near = step(iPR.xyz.sub(U.kitCenter).length(), SHOP_NEAR);
+    const near = step(iPR.xyz.sub(U.kitCenter).length(), U.shopNear);
     m.colorNode = Fn(() => {
       If(near.mul(front).greaterThan(0.5), () => { Discard(); });
       return wallCol;
