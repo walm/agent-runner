@@ -61,8 +61,19 @@ you, and name tags float over the agents' roofs.
 
 Hold the Meta button to recenter.
 
-WebXR only runs on `https` or `localhost`. Easiest: plug the Quest into the computer with USB (developer mode on), run
-`adb reverse tcp:5200 tcp:5200`, and open `http://localhost:5200` in the Quest browser; live reload keeps working.
+WebXR only runs on `https` or `localhost`: over plain `http://<your-ip>:5200` the game loads but ENTER VR never
+appears. Three ways to the headset:
+
+- **Same Wi-Fi:** `npm run dev:lan` serves Vite on every interface over https with a self-signed certificate. Open
+  `https://<your-computer's-ip>:5200` on the Quest and accept the certificate warning once (Advanced, then
+  Proceed).
+- **ngrok:** `npm run dev`, then `ngrok http 5200 --basic-auth "you:a-long-password"` and open the https URL it
+  prints.
+- **USB:** with developer mode on, `adb reverse tcp:5200 tcp:5200` and open `http://localhost:5200`.
+
+Live reload works with all three. The agent server stays on 127.0.0.1; the headset reaches it through Vite's `/api`
+proxy. That proxy also carries your agents' terminal output and accepts events, so `dev:lan` opens both to your
+network and ngrok to anyone holding the URL. Keep the basic auth on ngrok when real agents report in.
 
 What differs from the screen:
 - **No post chain in a headset** (no bloom, grade or wet-street mirror; three.js turns screen-space passes off in
@@ -116,6 +127,7 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 | | |
 |---|---|
 | `npm run dev` | Server with mock agents, plus Vite (proxies `/api` to the server) |
+| `npm run dev:lan` | The same, with Vite over https on every interface (for a headset on the LAN) |
 | `npm run server` / `server:mock` | The agent server alone (port `PORT`, default 5210) |
 | `npm run mock` | Mock agents posting over HTTP to a running server (`--url`, `--fast`, `--token`) |
 | `npm test` | Server unit tests (`node --test`) |

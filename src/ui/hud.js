@@ -77,7 +77,7 @@ export class Hud {
   show(on) { this.el.classList.toggle('off', !on); }
 
   setHints(touch) {
-    const items = touch ? [] : [['W S', 'THRUST'], ['A D', 'STEER'], ['SPACE C', 'LIFT'], ['SHIFT', 'BOOST'], ['V', 'CAMERA'], ['M', 'MAP'], ['G', 'AGENTS'], ['ESC', 'MENU']];
+    const items = touch ? [] : [['W S', 'THRUST'], ['A D', 'STEER'], ['SPACE', 'LIFT OFF / CLIMB'], ['C', 'DESCEND'], ['SHIFT', 'BOOST'], ['V', 'CAMERA'], ['M', 'MAP'], ['G', 'AGENTS'], ['ESC', 'MENU']];
     this.hints.innerHTML = items.map(([k, t]) => `<span><span class="key">${k}</span>${t}</span>`).join('');
     this.hints.classList.remove('fade');
     clearTimeout(this.hintTimer);

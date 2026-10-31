@@ -6,8 +6,8 @@ import { CITY } from '../city/layout.js';
 const CONTROLS = [
   ['Thrust / brake', 'W / S'],
   ['Steer', 'A / D'],
-  ['Climb', 'SPACE'],
-  ['Descend', 'C'],
+  ['Lift off / climb', 'SPACE'],
+  ['Descend / land (in the air)', 'C'],
   ['Boost', 'SHIFT'],
   ['Drift', 'SHIFT + turn at speed'],
   ['Camera', 'V'],
