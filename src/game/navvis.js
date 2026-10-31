@@ -1,6 +1,7 @@
 // What the satnav (nav.js) shows in the world: chevrons on the road along the next stretch of the route, in the
 // car's lane, and a small display floating ahead of the car with the next turn, how far it is, and where the route
-// ends. Both work in a headset as they do on the screen.
+// ends. On the screen the display is the same canvas in the DOM, pinned to that spot: drawn in the scene, the post
+// chain's bloom would wash the neon behind over it. A headset has no post chain, so there it is a plane in the world.
 import * as THREE from 'three/webgpu';
 import { attribute, positionGeometry, vec3, float, fract, smoothstep } from 'three/tsl';
 import { U } from '../core/shared.js';
@@ -12,9 +13,11 @@ const LANE = 3.4; // traffic keeps left: the chevrons run that far left of the s
 const CYAN = '#3be8ff', INK = 'rgba(232, 240, 255, 0.95)', DIM = 'rgba(190, 205, 235, 0.65)';
 const FONT = "'Oxanium Variable', system-ui, sans-serif", MONO = "'JetBrains Mono Variable', ui-monospace, monospace";
 const W = 640, H = 220;
+const _v = new THREE.Vector3();
 
 export class NavVisuals {
-  constructor() {
+  // root: where the screen's display goes (the HUD, so it hides with it)
+  constructor(root) {
     this.group = new THREE.Group();
     this.group.name = 'nav';
 
@@ -47,7 +50,8 @@ export class NavVisuals {
     this.chevrons.visible = false;
     this.group.add(this.chevrons);
 
-    // the display: a canvas on a plane, facing the camera; opaque, as the VR panels (HDR neon would show through)
+    // the display: a canvas on a plane, facing the camera. See-through, a hologram over the street: a faint tint
+    // and corner marks, the glyphs on a dark halo so the neon behind cannot wash them out
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -64,19 +68,30 @@ export class NavVisuals {
     this.panel.visible = false;
     this.group.add(this.panel);
     this.key = '';
+    this.dom = document.createElement('div');
+    this.dom.className = 'nav-hud hidden';
+    this.dom.appendChild(this.canvas);
+    root.appendChild(this.dom);
   }
 
-  // nav: the satnav; kite: the car; view: the camera (or the headset's head); show: the game is being played
-  update(nav, kite, view, show, label) {
+  // nav: the satnav; kite: the car; view: the camera (or the headset's head); show: the game is being played;
+  // xr: in a headset
+  update(nav, kite, view, show, label, xr) {
     const m = show && nav.maneuver;
-    this.chevrons.visible = this.panel.visible = !!m;
-    if (!m) return;
+    this.chevrons.visible = !!m;
+    this.panel.visible = !!m && xr;
+    if (!m) { this.dom.classList.add('hidden'); return; }
     this.layChevrons(nav);
     // ahead of the car and above its roof, turned with its heading only, facing the camera
     const fx = -Math.sin(kite.yaw), fz = -Math.cos(kite.yaw);
-    this.panel.position.set(kite.pos.x + fx * 5.5, kite.pos.y + 2.9, kite.pos.z + fz * 5.5);
+    this.panel.position.set(kite.pos.x + fx * 5.5, kite.pos.y + 3.3, kite.pos.z + fz * 5.5);
     this.panel.quaternion.copy(view.quaternion);
     this.draw(m, label);
+    // on the screen: the canvas itself, where that spot projects to
+    _v.copy(this.panel.position).project(view);
+    const on = !xr && _v.z < 1 && Math.abs(_v.x) < 1.1 && Math.abs(_v.y) < 1.1;
+    this.dom.classList.toggle('hidden', !on);
+    if (on) this.dom.style.transform = `translate(${((_v.x * 0.5 + 0.5) * innerWidth).toFixed(1)}px, ${((-_v.y * 0.5 + 0.5) * innerHeight).toFixed(1)}px) translate(-50%, -50%)`;
   }
 
   // the route ahead, moved into the left lane (corners and all: a corner moves by both legs' offsets), sampled
@@ -122,19 +137,27 @@ export class NavVisuals {
     this.key = key;
     const g = this.ctx;
     g.clearRect(0, 0, W, H);
-    // the DOM sheets' look: dark glass, a cyan edge, one corner cut
-    const cut = 22;
-    g.beginPath();
-    g.moveTo(0, 0); g.lineTo(W - cut, 0); g.lineTo(W, cut); g.lineTo(W, H); g.lineTo(cut, H); g.lineTo(0, H - cut); g.closePath();
-    g.fillStyle = '#05070f';
-    g.fill();
-    g.strokeStyle = 'rgba(59, 232, 255, 0.6)';
+    // a faint tint, darker toward the middle, and the corners of a frame
+    const tint = g.createLinearGradient(0, 0, W, 0);
+    tint.addColorStop(0, 'rgba(3, 6, 14, 0.5)');
+    tint.addColorStop(0.7, 'rgba(3, 6, 14, 0.36)');
+    tint.addColorStop(1, 'rgba(3, 6, 14, 0.1)');
+    g.fillStyle = tint;
+    g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(59, 232, 255, 0.7)';
     g.lineWidth = 3;
-    g.stroke();
+    const c = 26;
+    for (const [x, y, sx, sy] of [[2, 2, 1, 1], [W - 2, 2, -1, 1], [2, H - 2, 1, -1], [W - 2, H - 2, -1, -1]]) {
+      g.beginPath(); g.moveTo(x, y + sy * c); g.lineTo(x, y); g.lineTo(x + sx * c, y); g.stroke();
+    }
+    // every glyph from here on: a dark halo under it
+    const halo = () => { g.shadowColor = 'rgba(0, 0, 0, 1)'; g.shadowBlur = 14; };
     // the icon
     g.save();
     g.translate(110, H / 2);
     g.strokeStyle = g.fillStyle = CYAN;
+    halo();
+    icon(g, m.type);
     g.shadowColor = CYAN;
     g.shadowBlur = 18;
     icon(g, m.type);
@@ -143,16 +166,17 @@ export class NavVisuals {
     const what = { left: 'TURN LEFT', right: 'TURN RIGHT', back: 'TURN AROUND', arrive: 'ARRIVE' }[m.type];
     g.textBaseline = 'alphabetic';
     g.textAlign = 'left';
+    halo();
     g.fillStyle = INK;
-    g.font = `400 72px ${MONO}`;
+    g.font = `500 76px ${MONO}`;
     g.fillText(m.type === 'back' ? 'U-TURN' : fmt(dist), 220, 98);
     g.fillStyle = CYAN;
-    g.font = `600 26px ${FONT}`;
+    g.font = `700 28px ${FONT}`;
     g.letterSpacing = '6px';
     g.fillText(what, 222, 140);
     // where the route ends, and how far that is
     g.fillStyle = DIM;
-    g.font = `500 22px ${FONT}`;
+    g.font = `600 22px ${FONT}`;
     g.letterSpacing = '3px';
     let text = `${label} · ${fmt(m.total)}`;
     while (text.length > 4 && g.measureText(text).width > W - 250) text = text.slice(0, -2);

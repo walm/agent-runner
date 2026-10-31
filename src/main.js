@@ -211,7 +211,7 @@ async function boot() {
   const agents = new AgentLayer({ city, ui, screens, hud });
   scene.add(agents.group);
   const nav = new Nav(city);
-  const navVis = new NavVisuals();
+  const navVis = new NavVisuals(hud.el);
   scene.add(navVis.group);
   const touchUi = createTouch(ui, input);
   const fade = ui.querySelector('#fade');
@@ -344,7 +344,7 @@ async function boot() {
     else game.update(dt);
     const view = vr.update(dt, now) || camera;
     agents.update(view, kite);
-    navVis.update(nav, kite, view, game.state === 'play' && !fly.enabled, game.waypointAgent ? agents.entries.get(game.waypointAgent)?.agent.name ?? 'WAYPOINT' : 'WAYPOINT');
+    navVis.update(nav, kite, view, game.state === 'play' && !fly.enabled, game.waypointAgent ? agents.entries.get(game.waypointAgent)?.agent.name ?? 'WAYPOINT' : 'WAYPOINT', xr);
     lightning.update(dt, view.position);
     U.carPos.value.copy(kite.pos);
     U.carFwd.value.copy(kite.fwd);
