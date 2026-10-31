@@ -1,19 +1,15 @@
 {
-  "name": "neon-zenith",
+  "name": "neon-city-agents",
   "private": true,
   "version": "1.0.0",
-  "description": "A rain-soaked vertical cyberpunk city you can fly through in the browser. three.js WebGPU + TSL.",
+  "description": "Your AI agents live in a rain-soaked neon city: drive to their buildings and read their terminals. A fork of Neon Zenith (three.js WebGPU + TSL).",
   "license": "MIT",
-  "author": "Bill Chan (https://github.com/billpwchan)",
-  "homepage": "https://zenith.billpwchan.art/",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/billpwchan/neon-zenith.git"
-  },
-  "bugs": {
-    "url": "https://github.com/billpwchan/neon-zenith/issues"
-  },
+  "author": "Neon City Agents contributors; based on Neon Zenith by Bill Chan (https://github.com/billpwchan)",
   "keywords": [
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "agent-dashboard",
     "threejs",
     "webgpu",
     "tsl",
@@ -29,19 +25,25 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5200",
+    "dev": "node scripts/dev.mjs",
+    "dev:nomock": "node scripts/dev.mjs --no-mock",
+    "dev:web": "vite --host 127.0.0.1 --port 5200",
+    "server": "node server/index.mjs",
+    "server:mock": "node server/index.mjs --mock",
+    "mock": "node server/mock.mjs",
+    "test": "node --test server/*.test.mjs",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 5201"
+    "preview": "vite preview --host 127.0.0.1 --port 5201",
+    "start": "npm run build && node server/index.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/chiron-hei-hk": "^5.3.1",
-    "@fontsource-variable/chiron-sung-hk": "^5.3.1",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
     "@fontsource-variable/oxanium": "^5.3.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
     "three": "0.186.1"
   },
   "devDependencies": {
-    "@fontsource/lxgw-wenkai-tc": "^5.3.0",
     "@fontsource/monoton": "^5.3.0",
     "@fontsource/neonderthaw": "^5.3.0",
     "@fontsource/noto-serif-tc": "^5.3.0",

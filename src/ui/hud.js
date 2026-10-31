@@ -22,7 +22,7 @@ export class Hud {
     root.insertAdjacentHTML('beforeend', `
       <div id="hud" class="off">
         <div class="h-hit"></div>
-        <div class="h-compass"><canvas></canvas><div class="h-district"><span class="zh"></span><span class="en"></span></div></div>
+        <div class="h-compass"><canvas></canvas><div class="h-district"><span class="en"></span></div></div>
         <div class="h-alt"><canvas></canvas></div>
         <div class="h-map"><canvas></canvas></div>
         <div class="h-speed">
@@ -31,12 +31,12 @@ export class Hud {
             <path class="arc-v" d="" fill="none" stroke="${CYAN}" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 0 4px ${CYAN})"/>
             <path class="arc-b" d="" fill="none" stroke="${MAG}" stroke-width="2" stroke-linecap="round" style="filter:drop-shadow(0 0 4px ${MAG})"/>
           </svg>
-          <div class="h-mode"><span class="zh"></span><span class="en"></span></div>
+          <div class="h-mode"><span class="en"></span></div>
           <div class="h-spd">0</div>
           <div class="h-unit">KM/H</div>
         </div>
-        <div class="h-shards"><span class="gem"></span>SHARDS <span class="zh">晶片</span><b>0/0</b></div>
-        <div class="h-run hidden"><div class="rn"><span class="zh"></span><span class="en"></span></div><div class="rt">00:00.00</div><div class="rg">GATE <b>0/0</b></div><div class="rd"></div></div>
+        <div class="h-shards"><span class="gem"></span>SHARDS <b>0/0</b></div>
+        <div class="h-run hidden"><div class="rn"><span class="en"></span></div><div class="rt">00:00.00</div><div class="rg">GATE <b>0/0</b></div><div class="rd"></div></div>
         <div class="h-toast"></div>
         <div class="h-count hidden"></div>
         <div class="h-radio"></div>
@@ -48,8 +48,8 @@ export class Hud {
     this.gCompass = canvas(q('.h-compass'), 440, 34);
     this.gAlt = canvas(q('.h-alt'), 118, 400);
     this.gMap = canvas(q('.h-map'), 210, 210);
-    this.dZh = q('.h-district .zh'); this.dEn = q('.h-district .en');
-    this.spd = q('.h-spd'); this.modeZh = q('.h-mode .zh'); this.modeEn = q('.h-mode .en');
+    this.dEn = q('.h-district .en');
+    this.spd = q('.h-spd'); this.modeEn = q('.h-mode .en');
     this.arcV = q('.arc-v'); this.arcB = q('.arc-b');
     q('.arc-bg').setAttribute('d', this.arcPath(1, 66));
     // a tick every 50 km/h up to 450, longer every 100
@@ -61,7 +61,7 @@ export class Hud {
     }
     q('.h-speed svg').insertAdjacentHTML('afterbegin', ticks);
     this.shards = q('.h-shards b');
-    this.run = q('.h-run'); this.runZh = q('.h-run .rn .zh'); this.runEn = q('.h-run .rn .en'); this.runT = q('.h-run .rt'); this.runG = q('.h-run .rg b'); this.runD = q('.h-run .rd');
+    this.run = q('.h-run'); this.runEn = q('.h-run .rn .en'); this.runT = q('.h-run .rt'); this.runG = q('.h-run .rg b'); this.runD = q('.h-run .rd');
     this.toasts = q('.h-toast');
     this.count = q('.h-count');
     this.radioEl = q('.h-radio');
@@ -77,7 +77,7 @@ export class Hud {
   show(on) { this.el.classList.toggle('off', !on); }
 
   setHints(touch) {
-    const items = touch ? [] : [['W S', '油門 THRUST'], ['A D', '轉向 STEER'], ['SPACE C', '升降 LIFT'], ['SHIFT', '加速 BOOST'], ['V', '鏡頭 CAMERA'], ['M', '地圖 MAP'], ['ESC', '選單 MENU']];
+    const items = touch ? [] : [['W S', 'THRUST'], ['A D', 'STEER'], ['SPACE C', 'LIFT'], ['SHIFT', 'BOOST'], ['V', 'CAMERA'], ['M', 'MAP'], ['G', 'AGENTS'], ['ESC', 'MENU']];
     this.hints.innerHTML = items.map(([k, t]) => `<span><span class="key">${k}</span>${t}</span>`).join('');
     this.hints.classList.remove('fade');
     clearTimeout(this.hintTimer);
@@ -91,19 +91,19 @@ export class Hud {
     return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`;
   }
 
-  toast(zh, en, cls = '') {
+  toast(en, cls = '') {
     const d = document.createElement('div');
     d.className = 'toast ' + cls;
-    d.innerHTML = `${zh ? `<span class="zh">${zh}</span>` : ''}${en}`;
+    d.innerHTML = en;
     this.toasts.appendChild(d);
     while (this.toasts.children.length > 3) this.toasts.firstChild.remove();
     setTimeout(() => d.remove(), 2900);
   }
 
-  radio(who, en, zh) {
+  radio(who, en) {
     const d = document.createElement('div');
     d.className = 'radio-line';
-    d.innerHTML = `<span class="who">${who}</span>${en}${zh ? `<span class="zh">${zh}</span>` : ''}`;
+    d.innerHTML = `<span class="who">${who}</span>${en}`;
     this.radioEl.appendChild(d);
     while (this.radioEl.children.length > 3) this.radioEl.firstChild.remove();
     setTimeout(() => d.remove(), 7100);
@@ -129,7 +129,6 @@ export class Hud {
   setRun(run) {
     this.run.classList.toggle('hidden', !run);
     if (!run) return;
-    this.runZh.textContent = run.zh;
     this.runEn.textContent = run.en;
   }
 
@@ -152,10 +151,10 @@ export class Hud {
     if (Math.abs(fv - (this.last.fv ?? -1)) > 0.003) { this.arcV.setAttribute('d', this.arcPath(fv, 66)); this.arcV.style.opacity = fv > 0.004 ? 1 : 0; this.last.fv = fv; }
     const fb = s.boost;
     if (Math.abs(fb - (this.last.fb ?? -1)) > 0.01) { this.arcB.setAttribute('d', this.arcPath(fb, 58)); this.arcB.style.opacity = fb > 0.01 ? 1 : 0; this.last.fb = fb; }
-    const mode = s.mode === 'air' ? (s.lane ? ['航道', `SKY LANE ${s.lane}`] : ['空中', 'AIRBORNE']) : ['地面', 'STREET'];
-    if (mode[1] !== this.last.mode) { this.modeZh.textContent = mode[0]; this.modeEn.textContent = mode[1]; this.last.mode = mode[1]; }
+    const mode = s.mode === 'air' ? (s.lane ? `SKY LANE ${s.lane}` : 'AIRBORNE') : 'STREET';
+    if (mode !== this.last.mode) { this.modeEn.textContent = mode; this.last.mode = mode; }
     if (s.district && s.district.en !== this.last.district) {
-      this.dZh.textContent = s.district.zh; this.dEn.textContent = s.district.en; this.last.district = s.district.en;
+      this.dEn.textContent = s.district.en; this.last.district = s.district.en;
     }
     this.drawCompass(s);
     this.drawAlt(s);
@@ -173,7 +172,7 @@ export class Hud {
     const b = s.bearing;
     g.font = '500 10px "Oxanium Variable", sans-serif';
     g.textAlign = 'center';
-    const names = { 0: '北 N', 45: 'NE', 90: '東 E', 135: 'SE', 180: '南 S', 225: 'SW', 270: '西 W', 315: 'NW' };
+    const names = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
     for (let d = Math.ceil((b - 62) / 5) * 5; d <= b + 62; d += 5) {
       const x = W / 2 + (d - b) * pxPerDeg;
       const n = ((d % 360) + 360) % 360;
@@ -217,7 +216,7 @@ export class Hud {
       for (let y = Math.floor(c0 / 7) * 7; y < c1; y += 7) { g.moveTo(40, y); g.lineTo(52, y + 8); }
       g.stroke();
       g.fillStyle = DIM; g.font = '9px "Oxanium Variable"'; g.textAlign = 'left';
-      g.fillText('雲層 CLOUD', 46, Math.max(14, Math.min(H - 6, c1 - 4)));
+      g.fillText('CLOUD', 46, Math.max(14, Math.min(H - 6, c1 - 4)));
     }
     // ground under the craft: a line with a short hatched band beneath
     const gy = yOf(s.groundY);
@@ -264,7 +263,7 @@ export class Hud {
     g.fillStyle = INK; g.font = '500 15px "JetBrains Mono Variable"'; g.textAlign = 'right';
     g.fillText(String(Math.max(0, Math.round(alt))).padStart(4, '0'), 56, cy + 5);
     g.fillStyle = DIM; g.font = '9px "Oxanium Variable"'; g.textAlign = 'left';
-    g.fillText('高度 ALT M', 0, cy - 18);
+    g.fillText('ALT M', 0, cy - 18);
     g.fillText(`AGL ${Math.max(0, Math.round(s.alt - s.groundY))}`, 0, cy + 26);
     // vertical speed caret
     const vy = Math.max(-60, Math.min(60, s.vy * 2));

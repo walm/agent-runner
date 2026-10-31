@@ -154,6 +154,9 @@ function material(src, s, light, panes = false) {
   return m;
 }
 
+const SIGN_PARTS = /^(letters_|neon_|panel_|signface_|signbox_)/; // in the self-lit signs
+const GATE_ZH = /^neon_\(1\.0, 0\.05, 0\.12\)/; // the gate's red tubes, in the lightmapped street
+
 export function createDistrict(data) {
   const group = new THREE.Group();
   group.name = 'district';
@@ -167,14 +170,20 @@ export function createDistrict(data) {
   const spill = texture(data.ground, groundUV(positionWorld.xz)).rgb.mul(EXPO * 0.6)
     .mul(smoothstep(-0.6, 0.4, normalWorld.y.negate()).mul(0.6).add(0.4));
   const cache = new Map();
+  const hidden = [];
   root.traverse((o) => {
     if (!o.isMesh) return;
+    // the street's own signs were lettered in Chinese in Blender: they are dropped here, and the city's generated
+    // (English) signs hang on these buildings instead (layout.js keeps them in the corridor). Of the gate, only the
+    // red Chinese name goes; its TEMPLE STREET stays.
+    if ((o.geometry.attributes.uv1 ? GATE_ZH : SIGN_PARTS).test(o.material.name)) { hidden.push(o); return; }
     const baked = !!o.geometry.attributes.uv1;
     const key = o.material.uuid + baked;
     if (!cache.has(key)) cache.set(key, material(o.material, surface(o.material, data.ph), baked ? lmLight : spill, !!o.geometry.attributes.uv3));
     o.material = cache.get(key);
     o.frustumCulled = true;
   });
+  for (const o of hidden) o.removeFromParent();
 
   const props = createProps(data);
   group.add(props.group);

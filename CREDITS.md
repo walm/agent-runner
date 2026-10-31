@@ -32,9 +32,8 @@ Vehicle and brand names in model titles belong to their owners. The models are f
 
 ## Fonts: SIL Open Font License 1.1
 
-- [Chiron Hei HK](https://github.com/chiron-fonts/chiron-hei-hk) and [Chiron Sung HK](https://github.com/chiron-fonts/chiron-sung-hk): interface, signs, adverts.
-- [Oxanium](https://github.com/sevmeyer/oxanium) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono): interface, adverts.
-- [LXGW WenKai TC](https://github.com/lxgw/LxgwWenkaiTC), [Noto Serif TC](https://fonts.google.com/noto/specimen/Noto+Serif+TC), [Monoton](https://fonts.google.com/specimen/Monoton), [Neonderthaw](https://fonts.google.com/specimen/Neonderthaw) and [Tilt Neon](https://fonts.google.com/specimen/Tilt+Neon): baked into the neon sign atlas.
+- [Oxanium](https://github.com/sevmeyer/oxanium) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono): interface, adverts, signs.
+- [Noto Serif TC](https://fonts.google.com/noto/specimen/Noto+Serif+TC), [Monoton](https://fonts.google.com/specimen/Monoton), [Neonderthaw](https://fonts.google.com/specimen/Neonderthaw) and [Tilt Neon](https://fonts.google.com/specimen/Tilt+Neon): baked into the neon sign atlas.
 
 ## Made for this project
 

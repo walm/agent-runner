@@ -40,6 +40,7 @@ import { buildHeightmap } from './city/heightmap.js';
 import { createRain } from './atmos/rain.js';
 import { Traffic } from './life/traffic.js';
 import { SkyTraffic } from './life/skytraffic.js';
+import { AgentLayer } from './agents/agents.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -50,7 +51,7 @@ function loadSettings() {
 
 const ui = document.getElementById('ui');
 ui.insertAdjacentHTML('beforeend', `<div id="fade"></div><div id="loader"><div class="lw">
-  <div class="lt"><b>NEON ZENITH</b> · 霓虹天頂</div><div class="bar"><i></i></div><div class="st">BOOTING</div></div></div>`);
+  <div class="lt"><b>NEON CITY AGENTS</b></div><div class="bar"><i></i></div><div class="st">BOOTING</div></div></div>`);
 const loaderBar = ui.querySelector('#loader .bar i'), loaderSt = ui.querySelector('#loader .st');
 function progress(f, text) {
   loaderBar.style.width = `${Math.round(f * 100)}%`;
@@ -95,7 +96,7 @@ async function boot() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   await renderer.init();
-  await progress(0.08, 'LOADING TEXTURES · 載入材質');
+  await progress(0.08, 'LOADING TEXTURES');
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.25, 12000);
@@ -107,7 +108,7 @@ async function boot() {
   scene.environmentIntensity = 0.1;
   scene.environmentRotation.y = 1.2;
 
-  await progress(0.3, 'RAISING THE CITY · 生成城市');
+  await progress(0.3, 'RAISING THE CITY');
   const lightmap = buildLightmap(city);
   // inside Temple Street the light at street level is Blender's; the consumers scale this map by ~2.4 against albedo
   lightmap.district = { ground: districtData.ground, uv: groundUV, inside: insideRegion, scale: EXPO / 2.4 };
@@ -145,7 +146,7 @@ async function boot() {
   const sky2 = new SkyTraffic(city);
   scene.add(sky2.group);
 
-  await progress(0.55, 'TRAFFIC AND WEATHER · 交通與天氣');
+  await progress(0.55, 'TRAFFIC AND WEATHER');
   const hemi = new THREE.HemisphereLight(0x3a3060, 0x120a14, 0.35);
   scene.add(hemi);
   const moon = new THREE.DirectionalLight(0x8090c0, 0.25);
@@ -190,6 +191,9 @@ async function boot() {
     onUi: () => { sound.start(); sound.ui(); },
     onSetting: (k) => applySetting(k),
   });
+  // built before the warm-up so its beacons compile with everything else
+  const agents = new AgentLayer({ city, ui, screens, hud });
+  scene.add(agents.group);
   const touchUi = createTouch(ui, input);
   const fade = ui.querySelector('#fade');
   const attract = new Attract(camera, kite, city, fade);
@@ -209,7 +213,8 @@ async function boot() {
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
     if (k === 'shake' || k === 'all') rig.shakeScale = settings.shake;
   }
-  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch });
+  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents });
+  agents.bind(game);
   applySetting('all');
 
   const fly = new FlyCam(camera, canvas);
@@ -236,7 +241,7 @@ async function boot() {
       if (o.isMesh) o.frustumCulled = false;
       o.visible = true;
     });
-    await progress(0.75, 'COMPILING SHADERS · 編譯著色器');
+    await progress(0.75, 'COMPILING SHADERS');
     // compileAsync builds for the current render target, and the scene is never drawn straight to the canvas: it goes
     // into the post pass, the ground mirror and the car's cube probe. Compiled for the canvas, every one of those
     // variants was built synchronously in the first frames instead (a 0.5–3 s freeze on the title screen).
@@ -254,7 +259,7 @@ async function boot() {
     }
     renderer.setRenderTarget(prevTarget);
     await Promise.all(jobs);
-    await progress(0.95, 'IGNITION · 點火');
+    await progress(0.95, 'IGNITION');
     ground.updateReflection(renderer, scene, camera, true);
     post.render();
     for (const [o, v, f] of touched) { o.visible = v; o.frustumCulled = f; }
@@ -280,6 +285,7 @@ async function boot() {
     traffic.update(dt, camera.position, U.time.value, kite);
     if (fly.enabled) fly.update(dt);
     else game.update(dt);
+    agents.update(camera, kite);
     lightning.update(dt, camera.position);
     U.carPos.value.copy(kite.pos);
     U.carFwd.value.copy(kite.fwd);
@@ -307,9 +313,10 @@ async function boot() {
   else if (params.has('play')) game.startFree();
   else game.title();
   if (params.has('bot')) game.bot = new Bot();
+  if (params.get('agent')) { if (game.state === 'title') game.startFree(); agents.warpWhenSeen(params.get('agent')); }
   if (touch) game.touchUi = touchUi;
 
-  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
+  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
 }
 
 boot().catch((e) => {

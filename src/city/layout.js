@@ -20,27 +20,27 @@ export const CITY = {
 export const STYLE = { TENEMENT: 0, GLASS: 1, ESTATE: 2, OFFICE: 3, WAREHOUSE: 4 };
 
 export const SEEDS = [
-  { type: 'market', x: -880, z: -260, zh: '廟街夜市', en: 'TEMPLE NIGHT MARKET' },
-  { type: 'market', x: -460, z: 420, zh: '油麻地', en: 'YAU MA TEI' },
-  { type: 'market', x: -1250, z: 380, zh: '深水埗', en: 'SHAM SHUI PO' },
-  { type: 'center', x: 40, z: 40, zh: '天頂中區', en: 'ZENITH CENTRAL' },
-  { type: 'center', x: 420, z: -380, zh: '金鐘', en: 'ADMIRALTY RIDGE' },
-  { type: 'center', x: -260, z: -470, zh: '銅鑼灣', en: 'CAUSEWAY' },
-  { type: 'center', x: 360, z: 420, zh: '海港城', en: 'HARBOUR CITY' },
-  { type: 'estate', x: 1080, z: -620, zh: '彩虹邨', en: 'RAINBOW ESTATE' },
-  { type: 'estate', x: -320, z: -1180, zh: '石硤尾', en: 'SHEK KIP MEI' },
-  { type: 'mixed', x: 920, z: 340, zh: '九龍城', en: 'KOWLOON CITY' },
-  { type: 'mixed', x: -1200, z: -1000, zh: '長沙灣', en: 'CHEUNG SHA WAN' },
-  { type: 'mixed', x: 520, z: -1150, zh: '黃大仙', en: 'WONG TAI SIN' },
-  { type: 'docks', x: 760, z: 960, zh: '葵涌碼頭', en: 'KWAI CHUNG PIERS' },
-  { type: 'market', x: -820, z: 900, zh: '佐敦', en: 'JORDAN' },
+  { type: 'market', x: -880, z: -260, en: 'TEMPLE NIGHT MARKET' },
+  { type: 'market', x: -460, z: 420, en: 'YAU MA TEI' },
+  { type: 'market', x: -1250, z: 380, en: 'SHAM SHUI PO' },
+  { type: 'center', x: 40, z: 40, en: 'ZENITH CENTRAL' },
+  { type: 'center', x: 420, z: -380, en: 'ADMIRALTY RIDGE' },
+  { type: 'center', x: -260, z: -470, en: 'CAUSEWAY' },
+  { type: 'center', x: 360, z: 420, en: 'HARBOUR CITY' },
+  { type: 'estate', x: 1080, z: -620, en: 'RAINBOW ESTATE' },
+  { type: 'estate', x: -320, z: -1180, en: 'SHEK KIP MEI' },
+  { type: 'mixed', x: 920, z: 340, en: 'KOWLOON CITY' },
+  { type: 'mixed', x: -1200, z: -1000, en: 'CHEUNG SHA WAN' },
+  { type: 'mixed', x: 520, z: -1150, en: 'WONG TAI SIN' },
+  { type: 'docks', x: 760, z: 960, en: 'KWAI CHUNG PIERS' },
+  { type: 'market', x: -820, z: 900, en: 'JORDAN' },
 ];
 
 // the named district under (x, z), for the HUD and the map
 export function districtSeedAt(x, z) {
-  if (Math.abs(x) > CITY.half + 40 || z < -CITY.half - 40) return { zh: '新界', en: 'OUTER WARDS' };
-  if (z > CITY.harbourZ + 10 && z < CITY.farShoreZ) return { zh: '維多利亞港', en: 'VICTORIA HARBOUR' };
-  if (z >= CITY.farShoreZ) return { zh: '對岸', en: 'FAR SHORE' };
+  if (Math.abs(x) > CITY.half + 40 || z < -CITY.half - 40) return { en: 'OUTER WARDS' };
+  if (z > CITY.harbourZ + 10 && z < CITY.farShoreZ) return { en: 'VICTORIA HARBOUR' };
+  if (z >= CITY.farShoreZ) return { en: 'FAR SHORE' };
   if (Math.hypot(x, z) < 330) return SEEDS[3];
   const wx = x + (vnoise(x / 380 + 11, z / 380) - 0.5) * 380;
   const wz = z + (vnoise(x / 380, z / 380 + 7) - 0.5) * 380;
@@ -571,7 +571,7 @@ function bakeDistrict(city) {
   const c = DISTRICT.corridor, m = 1.5;
   const covered = (x, z) => (x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1)
     || baked.some((b) => b.tiers.some((t) => x > t.x0 - m && x < t.x1 + m && z > t.z0 - m && z < t.z1 + m));
-  city.signs = city.signs.filter((s) => !covered(s.x, s.z));
+  // the street's Blender signs are dropped at load (district.js): the generated ones stay and stand in for them
   city.awnings = city.awnings.filter((a) => !covered(a.x, a.z));
   city.roofProps = city.roofProps.filter((r) => !covered(r.x, r.z));
   city.bakedBoxes = DISTRICT.colliders;

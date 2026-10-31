@@ -38,5 +38,5 @@ export function drawCityMap(city) {
 }
 
 export function districtLabels() {
-  return SEEDS.map((s) => ({ x: s.x, z: s.z, zh: s.zh, en: s.en }));
+  return SEEDS.map((s) => ({ x: s.x, z: s.z, en: s.en }));
 }
