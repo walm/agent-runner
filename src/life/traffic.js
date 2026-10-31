@@ -1,4 +1,4 @@
-// Street traffic. Taxis, minibuses, buses, vans and private cars keep left, queue behind each other and stop for
+// Street traffic. Taxis, minibuses, vans and private cars keep left, queue behind each other and stop for
 // the signals. A fixed pool is spread over the lanes around the camera and recycled as it moves; from
 // altitude the pool widens so the avenues read as rivers of headlights and tail-lights.
 import * as THREE from 'three/webgpu';
@@ -54,10 +54,13 @@ function buildLanes(city) {
 
 // The Hong Kong street mix. Every type is an authored model baked to one atlas (assets-src/blender_bake.py);
 // sizes come from the bake: half-width, roof height, length. Forward is -Z like the KITE.
+// (The KMB double-decker, bus.glb, is out of the mix.)
 const MIX = [
-  ['taxi', 0.3], ['minibus', 0.1], ['van', 0.1], ['bus', 0.05],
-  ['sedan', 0.1], ['minivan', 0.1], ['suv', 0.07], ['hatch', 0.06], ['wagon', 0.06], ['coupe', 0.06],
+  ['taxi', 0.3], ['minibus', 0.1], ['van', 0.1],
+  ['sedan', 0.15], ['minivan', 0.1], ['suv', 0.07], ['hatch', 0.06], ['wagon', 0.06], ['coupe', 0.06],
 ];
+// models authored nose to +Z: turned round on load, or they would drive tail first
+const BACKWARDS = new Set(['minivan', 'hatch', 'coupe']);
 export const TYPES = MIX.map(([name, weight]) => {
   const v = VEH[name];
   return { name, weight, w: v.size[0] / 2, roof: v.size[1], len: v.size[2], emax: v.emax, paintLum: v.paintLum };
@@ -182,6 +185,7 @@ export class Traffic {
         let src = null;
         gltf.scene.traverse((o) => { if (o.isMesh && !src && (o.name === k || o.parent?.name === k)) src = o; });
         const base = toFloatGeometry(src.geometry).applyMatrix4(src.matrixWorld);
+        if (BACKWARDS.has(type.name)) base.rotateY(Math.PI);
         const geo = new THREE.InstancedBufferGeometry();
         geo.index = base.index;
         for (const [name, a] of Object.entries(base.attributes)) geo.setAttribute(name, a);
