@@ -70,6 +70,7 @@ export class CameraRig {
   }
 
   update(dt) {
+    if (this.xr) return; // in a headset the head is the camera: src/xr/vr.js places the seat
     const k = this.kite, cam = this.camera;
     const sp = k.speed;
     const air = k.mode === 'air';

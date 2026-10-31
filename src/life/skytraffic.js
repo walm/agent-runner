@@ -219,6 +219,7 @@ export class SkyTraffic {
   // the kite's body against every craft it touches, box to box: out over or under it when that is the shorter
   // way, otherwise off its side or nose, with a knock that depends on the closing speed
   collide(kite, t) {
+    if (!this.group.visible) return; // switched off (the light VR city): nothing to hit
     const p = kite.pos;
     const fx = -Math.sin(kite.yaw), fz = -Math.cos(kite.yaw);
     let hit = 0;

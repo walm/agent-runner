@@ -11,6 +11,7 @@ export class Input {
     this.down = new Set();
     this.queue = [];
     this.touch = { throttle: 0, steer: 0, lift: 0, boost: false };
+    this.xr = { throttle: 0, steer: 0, lift: 0, boost: false }; // the Touch controllers, written by src/xr/vr.js
     this.enabled = true;
     this.lastDevice = 'keyboard';
     addEventListener('keydown', (e) => {
@@ -53,11 +54,12 @@ export class Input {
         this.padPrev[b] = pressed;
       }
     }
-    const t = this.touch;
-    throttle = throttle || t.throttle;
-    steer = steer || t.steer;
-    lift = lift || t.lift;
-    boost = boost || t.boost;
+    for (const t of [this.touch, this.xr]) {
+      throttle = throttle || t.throttle;
+      steer = steer || t.steer;
+      lift = lift || t.lift;
+      boost = boost || t.boost;
+    }
     if (!this.enabled) return { throttle: 0, steer: 0, lift: 0, boost: false };
     return { throttle, steer, lift, boost };
   }

@@ -14,7 +14,6 @@ import { STYLE, queryBoxes } from './layout.js';
 import { hash12, hash13 } from '../tsl/util.js';
 import { U, noiseTex, loadArray } from '../core/shared.js';
 import { lmUV } from './lightmap.js';
-import { KIT_NEAR } from './buildings.js';
 import { LAYER_KIT } from './ground.js';
 import { toFloatGeometry } from '../vehicle/model.js';
 import FAC from './facades.json';
@@ -134,7 +133,7 @@ export function createFacadeKit(city, kits, facades, lightmap, tex) {
       const dy = Math.max(0, t.y0 - cam.y, cam.y - t.y1);
       const d = Math.hypot(t.x - cam.x, dy, t.z - cam.z);
       // a metre inside the shader's threshold: a stepped-back wall without cells is fine, cells on a full wall are not
-      if (d >= KIT_NEAR - 1) continue;
+      if (d >= U.kitNear.value - 1) continue;
       const recs = T.recs || (T.recs = place(T));
       const list = T.kit.batch[d < LOD0 ? 0 : 1];
       // faces the camera is well behind stay hidden until the next re-list

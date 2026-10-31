@@ -52,6 +52,7 @@
     "@gltf-transform/extensions": "^4.5.1",
     "@gltf-transform/functions": "^4.5.1",
     "gl-matrix": "^3.4.4",
+    "iwer": "2.5.0",
     "meshoptimizer": "^1.3.0",
     "playwright-core": "^1.63.0",
     "sharp": "^0.35.5",

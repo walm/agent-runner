@@ -337,7 +337,7 @@ export class Game {
     if (this.waypoint) {
       mapMarkers.push({ x: this.waypoint.x, z: this.waypoint.z, color: '#3be8ff', shape: 'ring', pin: true });
       markers.push({ bearing: bearingOf(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z), color: '#3be8ff' });
-      if (Math.hypot(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z) < 25) { this.waypoint = null; this.hud.toast('', 'WAYPOINT REACHED', 'cyan'); }
+      if (Math.hypot(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z) < 25) { this.waypoint = null; this.hud.toast('WAYPOINT REACHED', 'cyan'); }
     }
     this.shards.forEach((s, i) => {
       if (!this.collected.has(i) && Math.hypot(s.x - k.pos.x, s.z - k.pos.z) < 160) mapMarkers.push({ x: s.x, z: s.z, color: '#ff3df2', shape: 'gem' });

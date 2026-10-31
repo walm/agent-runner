@@ -92,6 +92,7 @@ export class Hud {
   }
 
   toast(en, cls = '') {
+    this.onToast?.(en, cls);
     const d = document.createElement('div');
     d.className = 'toast ' + cls;
     d.innerHTML = en;
@@ -101,6 +102,7 @@ export class Hud {
   }
 
   radio(who, en) {
+    this.onToast?.(`${who} · ${en}`, 'radio');
     const d = document.createElement('div');
     d.className = 'radio-line';
     d.innerHTML = `<span class="who">${who}</span>${en}`;

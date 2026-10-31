@@ -8,7 +8,14 @@ import { styleOf } from './visuals.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function ago(ms) {
+// shared with the VR panel, which draws the same buffer into a canvas
+export const THEME = {
+  background: '#05060d', foreground: '#d8e4ff', cursor: '#05060d', selectionBackground: 'rgba(59,232,255,0.3)',
+  black: '#1a1d2b', red: '#ff4a6a', green: '#5dff9a', yellow: '#ffb547', blue: '#5c8dff', magenta: '#ff3df2', cyan: '#3be8ff', white: '#d8e4ff',
+  brightBlack: '#5a6280', brightRed: '#ff7a92', brightGreen: '#8dffba', brightYellow: '#ffd08a', brightBlue: '#8fb0ff', brightMagenta: '#ff8cf7', brightCyan: '#8ff2ff', brightWhite: '#ffffff',
+};
+
+export function ago(ms) {
   const s = Math.max(0, Math.round(ms / 1000));
   if (s < 60) return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m`;
@@ -38,6 +45,7 @@ export class TerminalView {
     this.have = 0;
     this.pending = null;
     this.onClose = null;
+    this.fixed = null; // [cols, rows] while a headset shows the terminal; otherwise it fits the window
     addEventListener('resize', () => this.fit());
   }
 
@@ -46,11 +54,7 @@ export class TerminalView {
     this.term = new Terminal({
       disableStdin: true, convertEol: true, cursorBlink: false, cursorStyle: 'underline', scrollback: 5000, fontSize: 13, lineHeight: 1.25,
       fontFamily: '"JetBrains Mono Variable", ui-monospace, Menlo, monospace',
-      theme: {
-        background: '#05060d', foreground: '#d8e4ff', cursor: '#05060d', selectionBackground: 'rgba(59,232,255,0.3)',
-        black: '#1a1d2b', red: '#ff4a6a', green: '#5dff9a', yellow: '#ffb547', blue: '#5c8dff', magenta: '#ff3df2', cyan: '#3be8ff', white: '#d8e4ff',
-        brightBlack: '#5a6280', brightRed: '#ff7a92', brightGreen: '#8dffba', brightYellow: '#ffd08a', brightBlue: '#8fb0ff', brightMagenta: '#ff8cf7', brightCyan: '#8ff2ff', brightWhite: '#ffffff',
-      },
+      theme: THEME,
     });
     this.fitter = new FitAddon();
     this.term.loadAddon(this.fitter);
@@ -62,6 +66,7 @@ export class TerminalView {
 
   fit() {
     if (!this.term || !this.id) return;
+    if (this.fixed) { this.term.resize(...this.fixed); return; }
     try { this.fitter.fit(); } catch {}
   }
 

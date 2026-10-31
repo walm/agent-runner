@@ -41,6 +41,7 @@ import { createRain } from './atmos/rain.js';
 import { Traffic } from './life/traffic.js';
 import { SkyTraffic } from './life/skytraffic.js';
 import { AgentLayer } from './agents/agents.js';
+import { VRMode, vrSupported } from './xr/vr.js';
 
 const params = new URLSearchParams(location.search);
 
@@ -89,13 +90,25 @@ async function loadTextures() {
 
 async function boot() {
   const canvas = document.getElementById('gl');
-  const webgpu = !!navigator.gpu && !params.has('webgl');
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, powerPreference: 'high-performance', reversedDepthBuffer: webgpu, forceWebGL: !webgpu });
+  // ?xremu (dev only): an emulated Quest 3 (Meta's IWER), to try VR without a headset
+  if (import.meta.env.DEV && params.has('xremu')) {
+    const { XRDevice, metaQuest3 } = await import('iwer');
+    const device = new XRDevice(metaQuest3);
+    device.installRuntime({ forceInstall: true });
+    window.__xrdevice = device;
+  }
+  // WebXR over WebGPU needs XRGPUBinding, which no headset browser ships yet: with a headset there, use WebGL.
+  // A headset draws without the post chain (and its FXAA), so the canvas gets MSAA instead.
+  const webxr = !params.has('flat') && (await vrSupported());
+  const webgpu = !!navigator.gpu && !params.has('webgl') && !(webxr && typeof XRGPUBinding === 'undefined');
+  const renderer = new THREE.WebGPURenderer({ canvas, antialias: webxr, powerPreference: 'high-performance', reversedDepthBuffer: webgpu, forceWebGL: !webgpu });
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   renderer.setPixelRatio(dpr);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   await renderer.init();
+  // the emulator's XR framebuffer is null (the canvas itself), which three's WebGL state cannot use as a WeakMap key
+  if (import.meta.env.DEV && window.__xrdevice && renderer.backend.state) renderer.backend.state.currentDrawbuffers = new Map();
   await progress(0.08, 'LOADING TEXTURES');
 
   const scene = new THREE.Scene();
@@ -215,6 +228,21 @@ async function boot() {
   }
   game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents });
   agents.bind(game);
+  // the light VR city: modelled facades only close by (the photo facades take over sooner), no sky traffic,
+  // thinner rain
+  function vrProfile(light) {
+    U.kitNear.value = light ? 60 : 180;
+    facadeKit.update(U.kitCenter.value.clone(), true);
+    sky2.group.visible = !light;
+    if (light) rain.setQuality(0.45);
+    else {
+      camera.far = 12000;
+      camera.updateProjectionMatrix();
+      applySetting('quality');
+    }
+  }
+  const vr = new VRMode({ renderer, scene, camera, ui, kite, rig, input, hud, ground, post, profile: vrProfile });
+  vr.bind(game, agents);
   applySetting('all');
 
   const fly = new FlyCam(camera, canvas);
@@ -277,29 +305,36 @@ async function boot() {
   const t0 = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
-    gov.tick(now - last);
+    // in a headset the camera sits in the car's seat: everything that follows the eye follows vr.head instead
+    const xr = vr.presenting;
+    if (!xr) gov.tick(now - last);
     last = now;
     // the traffic moves to where this frame draws it before the car is moved and pushed out of it, or every
     // collision would be against where the traffic was a frame ago
     U.time.value = (now - t0) / 1000;
-    traffic.update(dt, camera.position, U.time.value, kite);
+    traffic.update(dt, (xr ? vr.head : camera).position, U.time.value, kite);
+    vr.poll(dt);
     if (fly.enabled) fly.update(dt);
     else game.update(dt);
-    agents.update(camera, kite);
-    lightning.update(dt, camera.position);
+    const view = vr.update(dt, now) || camera;
+    agents.update(view, kite);
+    lightning.update(dt, view.position);
     U.carPos.value.copy(kite.pos);
     U.carFwd.value.copy(kite.fwd);
-    U.camPos.value.copy(camera.position);
-    U.camVel.value.copy(camera.position).sub(prevCam).divideScalar(Math.max(dt, 1e-3));
-    prevCam.copy(camera.position);
-    sky.update(camera);
-    if (facadeKit.update(camera.position)) shopKit.list(U.kitCenter.value);
-    district.update(camera);
-    cullChunks(scene, camera.position);
-    clouds.update(camera);
-    probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], 2);
-    ground.updateReflection(renderer, scene, camera);
-    post.render();
+    U.camPos.value.copy(view.position);
+    U.camVel.value.copy(view.position).sub(prevCam).divideScalar(Math.max(dt, 1e-3));
+    prevCam.copy(view.position);
+    sky.update(view);
+    if (facadeKit.update(view.position)) shopKit.list(U.kitCenter.value);
+    district.update(view);
+    cullChunks(scene, view.position);
+    clouds.update(view);
+    probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], xr ? vr.probeFaces() : 2);
+    if (xr) vr.render();
+    else {
+      ground.updateReflection(renderer, scene, camera);
+      post.render();
+    }
   }
   probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], 6);
   renderer.setAnimationLoop(frame);
@@ -316,7 +351,7 @@ async function boot() {
   if (params.get('agent')) { if (game.state === 'title') game.startFree(); agents.warpWhenSeen(params.get('agent')); }
   if (touch) game.touchUi = touchUi;
 
-  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
+  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, vr, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
 }
 
 boot().catch((e) => {

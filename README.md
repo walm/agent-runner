@@ -42,6 +42,41 @@ An agent's id hashes to a building, so it gets the same building every time.
 
 Debug: `?play&agent=<id or part of a name>` starts the game parked outside that agent.
 
+## VR (Meta Quest)
+
+Open the game in the Quest browser and press **ENTER VR** (top left; it only shows when the browser has a headset).
+You sit in the car's seat, with a dash under your view; the agents list and the terminal open as panels in front of
+you, and name tags float over the agents' roofs.
+
+| Touch controller | |
+|---|---|
+| Right trigger / left trigger | Throttle / brake and reverse (the left stick's Y works too) |
+| Left stick X | Steer |
+| Right stick Y | Climb and descend |
+| Grip (either) | Boost |
+| **A** | Open the terminal at an agent's kerb (or start a run at its beacon) |
+| **X** | Agents list: stick to choose, **A** drive, **trigger** warp, **B** close |
+| **Y** | Seat view or chase view |
+| Right stick (terminal) | Scroll back; **A** or **B** closes |
+
+Hold the Meta button to recenter.
+
+WebXR only runs on `https` or `localhost`. Easiest: plug the Quest into the computer with USB (developer mode on), run
+`adb reverse tcp:5200 tcp:5200`, and open `http://localhost:5200` in the Quest browser; live reload keeps working.
+
+What differs from the screen:
+- **No post chain in a headset** (no bloom, grade or wet-street mirror; three.js turns screen-space passes off in
+  XR). The scene is tone-mapped by the renderer, a little brighter to make up for the missing bloom.
+- **WebGL**: WebXR over WebGPU is not in any headset browser yet, so with a headset present the game starts on WebGL.
+- **A light city on standalone headsets** (Quest, Pico): modelled facades only within 60 m, no sky traffic, a
+  shorter far plane, thinner rain, a slower car-reflection probe. About a third of the full city's triangles.
+  `?vr=full` or `?vr=light` overrides.
+- **A wait on entering**: every shader is built again for the headset in the background, about 25–35 s on a Mac.
+  It shows a notice in the meantime.
+
+No headset? `?xremu` (dev server only) installs Meta's WebXR emulator (IWER) as a Quest 3; the controllers are
+driven from the console through `__xrdevice.controllers.left/right`.
+
 ## Connect a harness
 
 The full API is in [docs/AGENT-API.md](docs/AGENT-API.md). The short version:
@@ -92,6 +127,7 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · mock.mjs
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
                labels (name tags) · panel (the G list) · terminal (xterm.js) · agents (glue to the game)
+src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
 integrations/  claude-code · codex · generic
 ```
 

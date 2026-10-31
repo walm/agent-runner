@@ -201,7 +201,7 @@ export class AgentLayer {
   update(camera, kite) {
     const p = kite.pos;
     for (const e of this.entries.values()) e.dist = Math.hypot(p.x - e.place.dock.x, p.z - e.place.dock.z);
-    this.labels.update(camera, this.entries.values(), !!this.screens.open || this.game?.state !== 'play');
+    this.labels.update(camera, this.entries.values(), !!this.screens.open || this.game?.state !== 'play' || this.inVR);
     if (this.open === 'agents' && this.listDirty) { this.panel.render(this.ranked(), this.feed.connected); this.listDirty = false; }
     if (this.game?.waypointAgent && !this.game.waypoint) this.game.waypointAgent = null;
     this.pendingWarp();
