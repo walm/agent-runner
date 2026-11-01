@@ -234,7 +234,12 @@ time, the browser asks for the microphone, and the model (17 MB) is fetched once
 **TALK LANGUAGE** in Settings is English unless you change it: English, German, French, Spanish, Italian, Dutch and
 Polish, or AUTO to detect it (short phrases are heard better with the language set).
 
-**Where it can type.** The hooks send the agent's process id (`pid=$PPID` in
+**Claude Code with the mod** (below, [Connect a harness](#connect-a-harness)) needs nothing else: the mod takes what
+you say inside Claude Code itself, in any terminal or editor. A message becomes a prompt (also when the session sits
+idle), an answer to a question or a permission prompt answers that dialog (the one in the terminal stays up too,
+and the first answer wins), and "stop" ends the turn.
+
+**Where it can type, without the mod.** The hooks send the agent's process id (`pid=$PPID` in
 [settings.example.json](integrations/claude-code/settings.example.json) and the Codex script), and the server finds
 the terminal that runs it:
 
@@ -266,7 +271,19 @@ some-command 2>&1 | integrations/generic/post-event.sh my-bot:prod --stream
 integrations/generic/post-event.sh my-bot:prod waiting "Approve the deploy?"
 ```
 
-- **Claude Code**: merge the `hooks` block from
+- **Claude Code, the mod** (recommended): in Claude Code, run
+
+  ```
+  /plugin install agent-runner --marketplace walm/agent-runner
+  ```
+
+  (or, from a clone, `claude plugin marketplace add /path/to/agent-runner` and `claude plugin install
+  agent-runner@agent-runner`). Every session then reports to the city and can be answered from the game, in any
+  terminal or editor, with no hooks to edit. The mod waits quietly while no Agent Runner is running and links up when
+  one starts, so a session started before the game still shows, with its recent history. Its settings (`/config`,
+  agent-runner): the server's address and token. Needs a recent Claude Code (2.1.3xx). More in
+  [its README](integrations/claude-code-mod/agent-runner/README.md).
+- **Claude Code, hooks** (older Claude Codes, or no mod): merge the `hooks` block from
   [integrations/claude-code/settings.example.json](integrations/claude-code/settings.example.json) into
   `~/.claude/settings.json` (all projects) or `.claude/settings.json` (one project). Each hook pipes Claude Code's
   own hook JSON to `POST /api/hooks/claude-code`, which maps it as follows:
@@ -275,7 +292,8 @@ integrations/generic/post-event.sh my-bot:prod waiting "Approve the deploy?"
   - permission prompt or a question with options → needs you (and you can answer it out loud)
   - stop → done
 
-  There is one building per host and working directory.
+  There is one building per host and working directory. Use the hooks or the mod, not both: each would report the
+  same session.
 
 - **Codex**: point `notify` in `~/.codex/config.toml` at
   [integrations/codex/notify.sh](integrations/codex/notify.sh). Codex only reports at the end of each turn.
@@ -313,7 +331,7 @@ src/agents/    feed (SSE client) · placement (agent → building and kerb) · v
 src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car) · autopilot (the car driving itself)
 src/audio/     audio (the synthesised world, NEON FM and the mix) · music (the radio's player and its sources) · voice (the agents and the DJ read out) · tts.worker (Supertonic 3)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
-integrations/  claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh, radio.sh) · radio (example DJs)
+integrations/  claude-code-mod (the mod) · claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh, radio.sh) · radio (example DJs)
 desktop/       the macOS app (MyGo): main.go runs the compiled server and shows the game; scripts/build.mjs builds both
 ```
 
