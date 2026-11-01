@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Store, validate, validateBillboard, LIMITS } from './store.mjs';
 import { runMock, BILLBOARDS } from './mock.mjs';
 import { runRadioDemo } from './radio-demo.mjs';
+import { runPlayground } from './playground.mjs';
 import { ADAPTERS } from './adapters.mjs';
 import { serveModelFile } from './models.mjs';
 import { locate, type } from './typer.mjs';
@@ -147,18 +148,38 @@ function fromTheGame(req) {
   return !site || site === 'same-origin' || site === 'none';
 }
 
-// what the driver said, for one agent: what it means at the agent's prompt (intent.js), then typed or queued
+// what the driver said or picked, for one agent: what it means at the agent's prompt (intent.js), then typed or
+// queued. The body is { text } (said), { choose: 1…9 } (an option picked in the game's list) or { answer: 'yes' |
+// 'no' } (its YES and NO for a choice whose options are not known).
 const inboxes = new Map(); // agent id -> [{ at, said, kind, keys }]
+const mocks = new Map(); // agent id -> answer(meant): the mock agents that take what is said (playground.mjs)
 let typing = Promise.resolve(); // one at a time: two lines must not interleave their keys
+function meaning(a, body) {
+  const choices = Array.isArray(a.meta.choices) ? a.meta.choices : [];
+  const n = Number.isInteger(body?.choose) && body.choose >= 1 && body.choose <= 9 ? body.choose : 0;
+  if (n) {
+    const label = choices[n - 1] ? String(choices[n - 1]) : '';
+    return { kind: 'choose', label: `PRESS ${n}${label ? ` · ${label.toUpperCase().slice(0, 40)}` : ''}`, keys: [{ key: String(n) }], text: label ? `${n}. ${label}` : `option ${n}`, picked: true };
+  }
+  if (body?.answer === 'yes') return { kind: 'yes', label: 'YES · ENTER', keys: [{ key: 'enter' }], text: 'yes', picked: true };
+  if (body?.answer === 'no') return { kind: 'no', label: 'NO · ESC', keys: [{ key: 'escape' }], text: 'no', picked: true };
+  const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 2000) : '';
+  return intent(text, { status: store.status(a), prompt: a.meta.prompt, choices });
+}
 async function talk(id, body) {
   const a = store.agents.get(id);
   if (!a) return { ok: false, error: 'no such agent' };
-  const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 2000) : '';
-  if (!text) return { ok: false, error: 'nothing was said' };
-  const meant = intent(text, { status: store.status(a), prompt: a.meta.prompt, choices: a.meta.choices });
-  if (!meant.keys.length) return { ok: false, error: 'nothing to send', ...meant };
+  const meant = meaning(a, body);
+  if (!meant.keys.length) return { ok: false, error: 'nothing was said', ...meant };
+  const text = meant.text;
   const C = { cyan: '\x1b[36m', grey: '\x1b[90m', red: '\x1b[31m', reset: '\x1b[0m', bold: '\x1b[1m' };
-  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}🎙 ${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
+  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}${meant.picked ? '▸' : '🎙'} ${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
+  const mock = mocks.get(id);
+  if (mock) {
+    const note = mock(meant);
+    echo(note ? `mock agent, ${note}` : 'mock agent');
+    return { ok: true, typed: 'mock agent', kind: meant.kind, label: meant.label };
+  }
   const queue = (why) => {
     const list = inboxes.get(id) || [];
     list.push({ at: Date.now(), said: text, kind: meant.kind, keys: meant.keys });
@@ -335,6 +356,9 @@ server.listen(PORT, HOST, () => {
   if (args.has('--mock')) {
     console.log('[agent-city] mock agents running in-process');
     runMock((events) => ingest(events), { fast: args.has('--fast') });
+    // and one to practise talking on: it asks, and takes what is said or picked in its terminal
+    const play = runPlayground((events) => ingest(events), { fast: args.has('--fast') });
+    mocks.set(play.id, (meant) => play.answer(meant));
     // once the agents have reported in, their billboards go up
     setTimeout(() => {
       for (const b of BILLBOARDS) {
