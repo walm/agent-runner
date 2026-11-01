@@ -2,7 +2,8 @@
 //   agent   by the satnav to the agents that need you (waiting on you, or failed), one after another: the long
 //           way over the streets at 50 m, the last few hundred metres a few metres over the traffic in the left
 //           lane; it lands at the kerb and waits while the agent still needs you. With nobody waiting it calls on
-//           the others in turn
+//           the others in turn. Pinned to one agent (AUTO in the agents list, or P while driving to one), it goes
+//           there and nowhere else, and hands the car back once it has landed at the kerb (`finish`)
 //   cruise  the street canyons at skyline height, at an easy pace, turning where it likes
 //   turbo   the avenues lower down, boosting along the long straights
 //   tour    the districts one after another, and round the Zenith spire, with a word from the radio at each
@@ -51,12 +52,17 @@ export class Autopilot {
     this.back = 0;
     this.scanAt = 0;
     this.need = { y: 0, at: Infinity, under: Infinity };
+    this.pin = null; // the one agent a pinned trip goes to
+    this.finish = null; // why it is done and the car is the driver's again (game.js turns it off)
   }
 
-  set(mode) {
+  // pin: the id of the one agent to drive to (agent mode); without one, the agent being driven to by the waypoint
+  set(mode, { pin } = {}) {
     if (!MODES.includes(mode)) mode = 'off';
     const was = this.mode;
     this.mode = mode;
+    this.pin = mode === 'agent' ? pin || this.game.waypointAgent || null : null;
+    this.finish = null;
     this.path = [];
     this.stop = null;
     this.parked = null;
@@ -122,7 +128,10 @@ export class Autopilot {
     let ty = street + plan.alt;
     // the end of the agent mode's route: down onto the street at the kerb, slowing to a stop there
     if (plan.land) {
-      const left = this.remaining(P, at);
+      // what is left: along the path, and never less than the way to its end (a route that doubles back near
+      // the kerb puts the car beside its last metres while the kerb is still across the street)
+      const end = P[P.length - 1];
+      const left = Math.max(this.remaining(P, at), Math.hypot(end.x - k.pos.x, end.z - k.pos.z));
       vT = Math.min(vT, Math.max(1.5, left * 0.45));
       ty = street + clamp((left - 7) * 0.4, 0, plan.alt);
       if (left < 3) return this.smooth(dt, { throttle: v > 0.6 ? -0.6 : 0, steer: 0, lift: air ? -1 : 0, boost: false });
@@ -440,6 +449,10 @@ export class Autopilot {
 
   agentPlan() {
     const g = this.game, k = g.kite;
+    if (this.pin) {
+      if (!g.agents.entries.has(this.pin)) { this.finish = 'THE AGENT LEFT'; return { park: { throttle: -0.3, steer: 0, lift: 0, boost: false } }; }
+      this.target = this.pin;
+    }
     let e = this.target && g.agents.entries.get(this.target);
     if (!e) {
       e = this.pickAgent();
@@ -453,13 +466,30 @@ export class Autopilot {
     // another does: go there instead. Otherwise it keeps to its choice, and gets there
     if (this.needy(e.agent)) this.calm = null;
     else this.calm ??= this.t;
-    if (!this.parked && this.t - this.calm > 10 && this.t - (this.checked || 0) > 2 && (g.nav.maneuver?.total ?? 0) > 400) {
+    if (!this.pin && !this.parked && this.t - this.calm > 10 && this.t - (this.checked || 0) > 2 && (g.nav.maneuver?.total ?? 0) > 400) {
       this.checked = this.t;
       const first = this.pickAgent();
       if (first && first !== e && this.needy(first.agent)) { e = first; this.target = e.agent.id; this.calm = null; g.agents.drive(e.agent.id); }
     }
     const a = e.agent, d = e.place.dock;
     const near = Math.hypot(k.pos.x - d.x, k.pos.z - d.z);
+    // braking that holds the car still: against the way it moves (its speed has no sign; reverse throttle on a car
+    // already rolling back would drive it away from the kerb)
+    const vf = k.vel.x * k.fwd.x + k.vel.z * k.fwd.z;
+    const hold = { throttle: vf > 0.3 ? -0.6 : vf < -0.3 ? 0.6 : 0, steer: 0, lift: k.mode === 'air' ? -1 : 0, boost: false };
+
+    // a pinned trip is there once the car is at the kerb ring, low enough for the agent's card (agents.js), and
+    // still; landed or hovering. It holds the car there on the brakes until it stops, then the driver takes over.
+    // Within 3 m of the ring's middle it is there; nearer the ring's edge only once it has made no headway for 2 s
+    const still = Math.abs(vf) < 0.4 && k.speed < 0.6;
+    if (this.pin && k.pos.y < 5 && near < 6.5) {
+      this.stuckAt = still && near >= 3 ? this.stuckAt ?? this.t : null;
+      if (near < 3 || this.t - (this.stuckAt ?? this.t) > 2) {
+        this.status = `AGENT · AT ${a.name.toUpperCase()}`;
+        if (still) this.finish = `ARRIVED AT ${a.name.toUpperCase()}`;
+        return { park: hold };
+      }
+    } else this.stuckAt = null;
 
     // parked: stay while it needs you; move on when it does not (or after a while, if others wait as well)
     // (within the kerb ring's reach, agents.js DOCK_R, and stopped; still in the air, it sets down there)
@@ -470,7 +500,7 @@ export class Autopilot {
       const go = this.needy(a) ? others && waited > DWELL_NEEDY : waited > DWELL;
       this.status = `AGENT · AT ${a.name.toUpperCase()}`;
       if (go) { this.left = a.id; this.target = null; this.parked = null; }
-      return { park: { throttle: k.speed > 0.5 ? -0.5 : 0, steer: 0, lift: k.mode === 'air' ? -1 : 0, boost: false } };
+      return { park: hold };
     }
 
     // the satnav's route (game.js keeps it planned to the waypoint), in the left lane, the last stretch to the kerb
@@ -481,7 +511,7 @@ export class Autopilot {
     const P = PROFILE.agent, left = g.nav.maneuver?.total ?? near;
     const f = clamp((left - 150) / 150, 0, 1);
     const path = f > 0.5 ? line : laneOf(line, P.lane);
-    this.status = `AGENT · ${this.needy(a) ? '' : 'VISITING '}${a.name.toUpperCase()} · ${Math.round(left)} M`;
+    this.status = `AGENT · ${this.pin ? 'TO ' : this.needy(a) ? '' : 'VISITING '}${a.name.toUpperCase()} · ${Math.round(left)} M`;
     return { path, alt: P.alt + f * (P.high - P.alt), speed: P.speed + f * (P.fast - P.speed), land: true };
   }
 

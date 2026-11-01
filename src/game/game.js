@@ -61,13 +61,14 @@ export class Game {
     };
   }
 
-  // the autopilot's mode (autopilot.js); why: what the toast says
-  setAutopilot(mode, why) {
+  // the autopilot's mode (autopilot.js); why: what the toast says; pin: the one agent the agent mode drives to
+  setAutopilot(mode, why, { pin } = {}) {
     const ap = this.autopilot;
-    if (mode === ap.mode) return;
+    if (mode === ap.mode && !(pin && pin !== ap.pin)) return;
     if (mode !== 'off' && this.run) return this.hud.toast('NO AUTOPILOT ON A RUN');
-    ap.set(mode);
-    this.hud.toast(mode === 'off' ? `AUTOPILOT OFF${why ? ` · ${why}` : ''}` : `AUTOPILOT · ${MODE_NAMES[mode]}`, mode === 'off' ? '' : 'cyan');
+    ap.set(mode, { pin });
+    const to = ap.pin && this.agents?.entries.get(ap.pin)?.agent.name;
+    this.hud.toast(mode === 'off' ? `AUTOPILOT OFF${why ? ` · ${why}` : ''}` : `AUTOPILOT · ${to ? `TO ${esc(to).toUpperCase()}` : MODE_NAMES[mode]}`, mode === 'off' ? '' : 'cyan');
     this.hud.autopilot(mode, ap.describe());
     this.screens.updateAutopilot?.(mode);
     this.sound.ui();
@@ -257,7 +258,15 @@ export class Game {
     else if (this.autopilot.on && !overlay && this.state === 'play') {
       // the player's own hands on the controls take the car back
       if (Math.abs(c.throttle) > 0.15 || Math.abs(c.steer) > 0.15 || Math.abs(c.lift) > 0.15 || c.boost) this.setAutopilot('off', 'YOU HAVE CONTROL');
-      else { c = this.autopilot.controls(dt); this.autopilot.tourTick(); }
+      else {
+        c = this.autopilot.controls(dt);
+        this.autopilot.tourTick();
+        // a trip to one agent is over (it landed at the kerb, or the agent left): the car is the driver's again
+        if (this.autopilot.finish) {
+          if (this.waypointAgent === this.autopilot.pin) { this.waypoint = null; this.waypointAgent = null; }
+          this.setAutopilot('off', this.autopilot.finish);
+        }
+      }
     }
     if (this.state === 'countdown') {
       this.run.count -= dt;
@@ -458,7 +467,10 @@ export class Game {
     if (this.waypoint) {
       mapMarkers.push({ x: this.waypoint.x, z: this.waypoint.z, color: '#3be8ff', shape: 'ring', pin: true });
       markers.push({ bearing: bearingOf(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z), color: '#3be8ff' });
-      if (Math.hypot(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z) < 25) { this.waypoint = null; this.hud.toast('WAYPOINT REACHED', 'cyan'); }
+      // reached; but the autopilot driving to an agent keeps it to the kerb (the road there can be longer than
+      // 25 m: the satnav's route would come and go) and lets it go when it lands
+      const driven = this.autopilot.mode === 'agent' && this.waypointAgent;
+      if (!driven && Math.hypot(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z) < 25) { this.waypoint = null; this.hud.toast('WAYPOINT REACHED', 'cyan'); }
     }
     this.shards.forEach((s, i) => {
       if (!this.collected.has(i) && Math.hypot(s.x - k.pos.x, s.z - k.pos.z) < 160) mapMarkers.push({ x: s.x, z: s.z, color: '#ff3df2', shape: 'gem' });

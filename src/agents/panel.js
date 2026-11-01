@@ -1,5 +1,6 @@
 // The agents list (G): every agent with its harness, status and latest line. DRIVE sets a waypoint to the door,
-// WARP puts the car at the kerb outside. ↑/↓ choose, Enter drives, Esc or G closes.
+// AUTO has the autopilot drive there (and stop at the kerb), WARP puts the car at the kerb outside. ↑/↓ choose,
+// Enter drives, P autopilots, Esc or G closes.
 import { styleOf } from './visuals.js';
 import { esc } from '../core/esc.js';
 
@@ -13,7 +14,7 @@ export class AgentPanel {
         <div class="sheet">
           <h2>AGENTS IN THE CITY</h2>
           <div class="agrows"></div>
-          <div class="agfoot"><span class="conn"></span><span><span class="key">↑ ↓</span>CHOOSE <span class="key">ENTER</span>DRIVE <span class="key">W</span>WARP <span class="key">ESC</span>CLOSE · <span class="key">PAD</span>STICK · A DRIVE · Y WARP · B CLOSE</span></div>
+          <div class="agfoot"><span class="conn"></span><span><span class="key">↑ ↓</span>CHOOSE <span class="key">ENTER</span>DRIVE <span class="key">P</span>AUTO <span class="key">W</span>WARP <span class="key">ESC</span>CLOSE · <span class="key">PAD</span>STICK · A DRIVE · R-STICK AUTO · Y WARP · B CLOSE</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#aglist');
@@ -23,12 +24,14 @@ export class AgentPanel {
     this.order = [];
     this.onDrive = null; // (id) => void
     this.onWarp = null;
+    this.onAuto = null; // (id) => void: the autopilot drives there
     this.onClose = null;
     this.el.addEventListener('click', (e) => {
       const b = e.target.closest('[data-ag]');
       if (!b) { if (e.target === this.el) this.onClose?.(); return; }
       const id = b.closest('[data-id]')?.dataset.id;
       if (b.dataset.ag === 'drive') this.onDrive?.(id);
+      else if (b.dataset.ag === 'auto') this.onAuto?.(id);
       else if (b.dataset.ag === 'warp') this.onWarp?.(id);
     });
   }
@@ -59,7 +62,7 @@ export class AgentPanel {
         <span class="dot"></span>
         <div class="nm"><b>${esc(a.name)}</b><small>${esc(a.harness)} · ${esc(a.last || '—')}</small></div>
         <div class="st">${s.en}<small>${dist < 1000 ? `${Math.round(dist)} M` : `${(dist / 1000).toFixed(1)} KM`}</small></div>
-        <div class="acts"><button class="btn" data-ag="drive">DRIVE</button><button class="btn ghost" data-ag="warp">WARP</button></div>
+        <div class="acts"><button class="btn" data-ag="drive">DRIVE</button><button class="btn ghost" data-ag="auto">AUTO</button><button class="btn ghost" data-ag="warp">WARP</button></div>
       </div>`;
     }).join('');
   }
