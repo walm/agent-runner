@@ -23,6 +23,19 @@ const MENU_CHOICES = ['Yes', "Yes, and don't ask again", 'No'];
 const quiet = { prompt: null, choices: null };
 const label = (o) => clip(typeof o === 'string' ? o : o?.label, 60);
 
+// a question with options (Claude Code's AskUserQuestion): the agent waits for a choice, which "select 2" or the
+// option's words make; null when the input holds none
+function question(base, input) {
+  const q = [].concat(input?.questions || [])[0];
+  if (!q?.options?.length) return null;
+  const choices = q.options.slice(0, 9).map(label);
+  return {
+    ...base, status: 'waiting', message: clip(q.question || 'A question for you', 300),
+    meta: { ...base.meta, prompt: 'menu', choices },
+    text: `\n${C.mag}${C.bold}? ${q.question || ''}${C.reset}\n${choices.map((c, i) => `${C.mag}  ${i + 1}. ${c}${C.reset}`).join('\n')}\n`,
+  };
+}
+
 // Claude Code hooks (settings.json "hooks"): every event gets the JSON on stdin with session_id, cwd and
 // hook_event_name. One agent per host and working directory; the session id goes in meta.
 export function claudeCode(p, { host, pid } = {}) {
@@ -41,19 +54,13 @@ export function claudeCode(p, { host, pid } = {}) {
     case 'UserPromptSubmit':
       return { ...busy, status: 'working', message: `Prompt: ${clip(p.prompt, 160)}`, meta: { ...busy.meta, task: clip(p.prompt, 200) }, text: `\n${C.mag}${C.bold}❯${C.reset} ${C.bold}${String(p.prompt ?? '').trim()}${C.reset}\n\n` };
     case 'PreToolUse': {
-      // a question with options: the agent waits for a choice, which "select 2" or the option's words make
-      const q = p.tool_name === 'AskUserQuestion' && [].concat(p.tool_input?.questions || [])[0];
-      if (q?.options?.length) {
-        const choices = q.options.slice(0, 9).map(label);
-        return {
-          ...base, status: 'waiting', message: clip(q.question || 'A question for you', 300),
-          meta: { ...base.meta, prompt: 'menu', choices },
-          text: `\n${C.mag}${C.bold}? ${q.question || ''}${C.reset}\n${choices.map((c, i) => `${C.mag}  ${i + 1}. ${c}${C.reset}`).join('\n')}\n`,
-        };
-      }
+      const q = p.tool_name === 'AskUserQuestion' && question(base, p.tool_input);
+      if (q) return q;
       return { ...busy, status: 'working', message: toolSummary(p.tool_name, p.tool_input), text: `${C.yellow}⏺${C.reset} ${C.bold}${toolSummary(p.tool_name, p.tool_input)}${C.reset}\n` };
     }
     case 'PermissionRequest':
+      // the question tool asks through the permission dialog too: its options are the choice, not yes or no
+      if (p.tool_name === 'AskUserQuestion') return { ...base, status: 'waiting', meta: { ...base.meta, prompt: 'menu' } };
       return {
         ...base, status: 'waiting', message: `Allow ${toolSummary(p.tool_name, p.tool_input)}?`,
         meta: { ...base.meta, prompt: 'menu', choices: MENU_CHOICES },
@@ -72,9 +79,11 @@ export function claudeCode(p, { host, pid } = {}) {
       // newer Claude Codes say which kind; older ones only the words
       const type = p.notification_type || (/permission|approv|allow/i.test(p.message || '') ? 'permission_prompt' : /waiting for your input/i.test(p.message || '') ? 'idle_prompt' : '');
       const prompt = type === 'permission_prompt' || type === 'elicitation_dialog' ? 'menu' : type === 'idle_prompt' ? 'input' : null;
+      // a question's own options stay (its notification names the tool), a permission prompt's are yes and no
+      const asks = /AskUserQuestion/.test(p.message || '');
       return {
         ...base, status: 'waiting', message: clip(p.message || 'Needs your attention', 300),
-        meta: { ...base.meta, prompt, choices: type === 'permission_prompt' ? MENU_CHOICES : null },
+        meta: { ...base.meta, prompt, ...(asks ? {} : { choices: type === 'permission_prompt' ? MENU_CHOICES : null }) },
         text: `\n${C.mag}${C.bold}? ${p.message || 'Needs your attention'}${C.reset}\n`,
       };
     }

@@ -84,6 +84,11 @@ test('the hooks say what the agent shows, and where it runs', () => {
   assert.equal(claudeCode(hook({ hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash' })).meta.prompt, 'menu');
   assert.equal(claudeCode(hook({ hook_event_name: 'Notification', message: 'Claude is waiting for your input' })).meta.prompt, 'input');
   assert.equal(claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })).message, 'Allow Bash(rm -rf build)?');
+  // the question tool's own permission request keeps the question's options
+  const qperm = claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'AskUserQuestion', tool_input: {} }));
+  assert.equal(qperm.meta.prompt, 'menu');
+  assert.equal('choices' in qperm.meta, false);
+  assert.equal('choices' in claudeCode(hook({ hook_event_name: 'Notification', notification_type: 'permission_prompt', message: 'Claude needs your permission to use AskUserQuestion' })).meta, false);
   // back at work: no prompt, and a bad pid is left out
   const work = claudeCode(hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } }), { pid: 'x' });
   assert.equal(work.meta.prompt, null);
