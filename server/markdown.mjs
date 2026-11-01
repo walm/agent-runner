@@ -12,7 +12,8 @@
 //   | a | b |  tables          box-drawn, columns as wide as their text up to a share of `width`, longer cells
 //                              wrapped inside their column
 const E = (n) => `\x1b[${n}m`;
-const C = { reset: E(0), bold: E(1), dim: E(2), italic: E(3), under: E(4), strike: E(9), red: E(31), green: E(32), yellow: E(33), mag: E(35), cyan: E(36), grey: E(90), white: E(97) };
+const C = { reset: E(0), bold: E(1), dim: E(2), italic: E(3), under: E(4), strike: E(9), red: E(31), green: E(32), yellow: E(33), blue: E(34), mag: E(35), cyan: E(36), grey: E(90), white: E(97) };
+const F = C.blue; // frames: a table's lines, rules, the bars of quotes and code, bright enough on the dark terminal
 
 // the width a string takes on screen: escape codes take none, every character one (CJK and emoji are rare enough
 // in a reply not to measure)
@@ -78,8 +79,8 @@ function table(rows, width) {
     if (aligns[i] === 'center') return ' '.repeat(gap >> 1) + s + ' '.repeat(gap - (gap >> 1));
     return pad(s, w[i]);
   };
-  const line = (l, m, r) => `${C.grey}${l}${w.map((x) => '─'.repeat(x + 2)).join(m)}${r}${C.reset}`;
-  const bar = `${C.grey}│${C.reset}`;
+  const line = (l, m, r) => `${F}${l}${w.map((x) => '─'.repeat(x + 2)).join(m)}${r}${C.reset}`;
+  const bar = `${F}│${C.reset}`;
   const row = (r, bold) => {
     const lines = r.map((c, i) => wrap(c, w[i]));
     const h = Math.max(...lines.map((l) => l.length));
@@ -99,8 +100,8 @@ export function markdown(md, { width = 100 } = {}) {
     if (fence) {
       const end = src.findIndex((x, j) => j > i && x.trim().startsWith(fence[1]));
       const body = src.slice(i + 1, end < 0 ? src.length : end);
-      if (fence[2]) out.push(`${C.grey}┌ ${fence[2]}${C.reset}`);
-      for (const b of body) out.push(`${C.grey}│${C.reset} ${C.green}${b}${C.reset}`);
+      if (fence[2]) out.push(`${F}┌ ${fence[2]}${C.reset}`);
+      for (const b of body) out.push(`${F}│${C.reset} ${C.green}${b}${C.reset}`);
       i = end < 0 ? src.length : end;
       continue;
     }
@@ -119,9 +120,9 @@ export function markdown(md, { width = 100 } = {}) {
       out.push(`${C.bold}${h[1].length <= 2 ? C.mag : C.white}${inline(h[2])}${C.reset}`);
       continue;
     }
-    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { out.push(`${C.grey}${'─'.repeat(Math.min(width, 40))}${C.reset}`); continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) { out.push(`${F}${'─'.repeat(Math.min(width, 40))}${C.reset}`); continue; }
     const q = /^\s*>\s?(.*)$/.exec(l);
-    if (q) { out.push(`${C.grey}▌${C.reset} ${C.italic}${inline(q[1])}${C.reset}`); continue; }
+    if (q) { out.push(`${F}▌${C.reset} ${C.italic}${inline(q[1])}${C.reset}`); continue; }
     const task = /^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$/.exec(l);
     if (task) { out.push(`${task[1]}${task[2] === ' ' ? '☐' : `${C.green}☑${C.reset}`} ${inline(task[3])}`); continue; }
     const bullet = /^(\s*)[-*+]\s+(.*)$/.exec(l);

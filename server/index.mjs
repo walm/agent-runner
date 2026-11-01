@@ -169,7 +169,8 @@ function meaning(a, body) {
   if (body?.answer === 'yes') return { kind: 'yes', label: 'YES · ENTER', keys: [{ key: 'enter' }], text: 'yes', picked: true };
   if (body?.answer === 'no') return { kind: 'no', label: 'NO · ESC', keys: [{ key: 'escape' }], text: 'no', picked: true };
   const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 2000) : '';
-  return intent(text, { status: store.status(a), prompt: a.meta.prompt, choices });
+  // typed in the game's terminal ({ text, typed: true }) means the same as said
+  return { ...intent(text, { status: store.status(a), prompt: a.meta.prompt, choices }), typed: body?.typed === true };
 }
 async function talk(id, body) {
   const a = store.agents.get(id);
@@ -178,7 +179,7 @@ async function talk(id, body) {
   if (!meant.keys.length) return { ok: false, error: 'nothing was said', ...meant };
   const text = meant.text;
   const C = { cyan: '\x1b[36m', grey: '\x1b[90m', red: '\x1b[31m', reset: '\x1b[0m', bold: '\x1b[1m' };
-  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}${meant.picked ? '▸' : '🎙'} ${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
+  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}${meant.picked ? '▸' : meant.typed ? '⌨' : '🎙'} ${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
   const mock = mocks.get(id);
   if (mock) {
     const note = mock(meant);

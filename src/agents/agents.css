@@ -99,6 +99,12 @@
 #agterm .tchoices .opt { font: inherit; font-size: 12px; letter-spacing: 0.06em; color: var(--ink); background: rgba(150, 225, 255, 0.06); border: 1px solid rgba(150, 225, 255, 0.25); padding: 7px 12px 6px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #agterm .tchoices .opt b { font-family: var(--mono); font-weight: 600; color: var(--c); margin-right: 8px; }
 #agterm .tchoices .opt:hover, #agterm .tchoices .opt.pad-sel { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); color: #fff; }
+/* typing to the agent: a prompt line under its output */
+#agterm .tsay { display: flex; align-items: center; gap: 10px; padding: 6px 16px; border-top: 1px solid rgba(150, 225, 255, 0.08); }
+#agterm .tsay .pr { color: var(--c); font-family: var(--mono); font-weight: 600; }
+#agterm .tsay .say { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--ink); font-family: var(--mono); font-size: 13px; padding: 4px 0; caret-color: var(--c); }
+#agterm .tsay .say::placeholder { color: var(--ink-faint); font-family: var(--display); font-size: 10px; letter-spacing: 0.2em; }
+#agterm .tsay:focus-within { background: color-mix(in srgb, var(--c) 7%, transparent); }
 /* talking to the agent (talk.js): the button, what to say or what is happening, the microphone's level */
 #agterm .ttalk { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-top: 1px solid rgba(150, 225, 255, 0.08); font-size: 10px; letter-spacing: 0.2em; color: var(--ink-faint); --t: var(--ink-faint); }
 #agterm .ttalk .mic { padding: 7px 12px 6px; font-size: 10px; flex: none; touch-action: none; user-select: none; -webkit-user-select: none; }

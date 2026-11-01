@@ -35,8 +35,9 @@ export class TerminalView {
           <div class="tmeta"></div>
           <div class="tbody"></div>
           <div class="tchoices hidden"></div>
+          <div class="tsay"><span class="pr">❯</span><input class="say" type="text" maxlength="2000" autocomplete="off" spellcheck="false" placeholder="TYPE TO THE AGENT · ENTER SENDS · ESC LEAVES"></div>
           <div class="ttalk idle"><button class="btn mic" data-ag="talk">HOLD TO TALK</button><span class="tt"></span><i class="lvl"><b></b></i></div>
-          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
+          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">ENTER TO TYPE · ↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#agterm');
@@ -54,6 +55,26 @@ export class TerminalView {
     const mic = this.q('.mic');
     mic.addEventListener('pointerdown', (e) => { e.preventDefault(); mic.setPointerCapture?.(e.pointerId); this.onTalk?.(true); });
     for (const ev of ['pointerup', 'pointercancel']) mic.addEventListener(ev, () => this.onTalk?.(false));
+    // typing to the agent: Enter sends what is in the box (as if said: "select 2" and "yes" work too); ↑ ↓ bring
+    // back what was sent before
+    this.onType = null; // (text) => void
+    this.sent = [];
+    this.recall = -1;
+    const say = this.q('.say');
+    say.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        const text = say.value.trim();
+        if (text) { this.onType?.(text); this.sent = [text, ...this.sent.filter((x) => x !== text)].slice(0, 20); }
+        say.value = '';
+        this.recall = -1;
+        e.preventDefault();
+      } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.sent.length) {
+        this.recall = Math.max(-1, Math.min(this.sent.length - 1, this.recall + (e.key === 'ArrowUp' ? 1 : -1)));
+        say.value = this.recall < 0 ? '' : this.sent[this.recall];
+        e.preventDefault();
+      }
+    });
+
     // the agent's options while it waits at a choice: click one, press its number, say it, or the d-pad and A
     this.onPick = null; // (1…9 | 'yes' | 'no') => void
     this.opts = [];
@@ -82,6 +103,11 @@ export class TerminalView {
   }
 
   hasChoices() { return this.opts.length > 0; }
+
+  // the typing box: whether a key belongs to it, and moving into it or out
+  typing(e) { return e.target === this.q('.say'); }
+  focusSay() { this.q('.say').focus(); }
+  blurSay() { this.q('.say').blur(); }
 
   // the d-pad's highlight in the options, and A on it
   moveChoice(d) {
@@ -202,6 +228,7 @@ export class TerminalView {
     this.pending = null;
     this.opts = [];
     this.optKey = '';
+    this.blurSay();
     this.el.classList.add('hidden');
     if (!quiet) this.term?.blur();
   }
