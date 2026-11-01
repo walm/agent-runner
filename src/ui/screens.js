@@ -2,6 +2,8 @@
 import { MAP, toMap, districtLabels } from './citymap.js';
 import { fmtTime, route } from './hud.js';
 import { CITY } from '../city/layout.js';
+import { esc } from '../core/esc.js';
+import { PAD } from '../core/input.js';
 
 const CONTROLS = [
   ['Thrust / brake', 'W / S'],
@@ -20,7 +22,10 @@ const CONTROLS = [
   ['Autopilot: off, agent, cruise, turbo, tour', 'P · R-STICK PRESS'],
   ['Menu', 'ESC'],
   ['Quit to main menu (in the menu)', 'Q'],
-  ['Gamepad', 'RT/LT · L-stick · R-stick lift · RB boost'],
+  ['Gamepad: drive', 'RT/LT · L-STICK · R-STICK LIFT · RB BOOST'],
+  ['Gamepad: buttons', 'A ENTER · B HORN · X AGENTS · Y CAMERA · START MENU · BACK MAP · R-STICK PRESS AUTOPILOT'],
+  ['Gamepad: radio', 'D-PAD UP ON/OFF · LEFT/RIGHT TRACK · DOWN STATION'],
+  ['Gamepad: menus', 'D-PAD/STICK CHOOSE · A PICK · B BACK · LB/RB TABS'],
 ];
 
 const REPO = 'https://github.com/billpwchan/neon-zenith';
@@ -149,7 +154,6 @@ export class Screens {
     const m = this.radio;
     if (!m) return '';
     const s = this.settings, t = m.current, live = m.source?.live;
-    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
     // what plays, whoever picked it (the DJ, while it is on air)
     const srcOn = m.source?.id || s.radioSource;
     const catOn = m.djActive ? m.choice().category || 'all' : s.radioCategory;
@@ -301,8 +305,23 @@ export class Screens {
     return { x: this.view.cx + (px - r.left - r.width / 2) / s, z: this.view.cz + (py - r.top - r.height / 2) / s };
   }
 
+  // a gamepad on the map: the left stick pans, the triggers (or the right stick) zoom, A sets the waypoint at the
+  // crosshair in the middle (drawn once the pad has been used here)
+  padMap(input, dt, onWaypoint) {
+    const ax = input.padAxes, e = input.padEdges, v = this.view;
+    const z = input.padTrig[1] - input.padTrig[0] - (Math.abs(ax[3]) > 0.3 ? ax[3] : 0);
+    if (ax[0] || ax[1] || z || e.has(PAD.A)) this.padOnMap = true;
+    if (ax[0] || ax[1]) {
+      v.cx = Math.max(-MAP.extent, Math.min(MAP.extent, v.cx + (ax[0] * 900 * dt) / v.zoom));
+      v.cz = Math.max(-MAP.extent, Math.min(MAP.extent, v.cz + (ax[1] * 900 * dt) / v.zoom));
+    }
+    if (z) v.zoom = Math.max(0.6, Math.min(5, v.zoom * Math.exp(z * dt * 1.6)));
+    if (e.has(PAD.A)) onWaypoint(v.cx, v.cz);
+  }
+
   openMap(player) {
     this.open = 'map';
+    this.padOnMap = false;
     this.mapEl.classList.remove('hidden');
     this.view.cx = player.x * 0.5;
     this.view.cz = player.z * 0.5;
@@ -357,6 +376,17 @@ export class Screens {
     g.shadowColor = '#3be8ff'; g.shadowBlur = 10;
     g.beginPath(); g.moveTo(0, -11); g.lineTo(7, 8); g.lineTo(0, 4); g.lineTo(-7, 8); g.closePath(); g.fill();
     g.restore();
+    // the pad's crosshair: where A puts the waypoint
+    if (this.padOnMap) {
+      const cx = r.width / 2, cy = r.height / 2;
+      g.strokeStyle = '#3be8ff'; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(cx, cy, 9, 0, Math.PI * 2); g.stroke();
+      g.beginPath();
+      for (const [x0, y0, x1, y1] of [[-18, 0, -12, 0], [12, 0, 18, 0], [0, -18, 0, -12], [0, 12, 0, 18]]) { g.moveTo(cx + x0, cy + y0); g.lineTo(cx + x1, cy + y1); }
+      g.stroke();
+      g.fillStyle = '#3be8ff'; g.font = '500 10px "Oxanium Variable"'; g.textAlign = 'center';
+      g.fillText('A · WAYPOINT', cx, cy + 32);
+    }
   }
 
   // ---- results ----

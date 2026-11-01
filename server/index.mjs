@@ -111,7 +111,9 @@ export function ingest(body) {
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.glb': 'model/gltf-binary', '.ktx2': 'image/ktx2', '.hdr': 'application/octet-stream', '.woff2': 'font/woff2', '.woff': 'font/woff' };
 
 async function serveStatic(req, res, path) {
-  const rel = normalize(decodeURIComponent(path)).replace(/^(\.\.[/\\])+/, '');
+  let decoded;
+  try { decoded = decodeURIComponent(path); } catch { return send(res, 400, 'bad path'); }
+  const rel = normalize(decoded).replace(/^(\.\.[/\\])+/, '');
   let file = join(DIST, rel);
   if (!file.startsWith(DIST)) return send(res, 403, 'forbidden');
   try {

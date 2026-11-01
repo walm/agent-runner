@@ -199,6 +199,7 @@ export class VRMode {
     if (g.screens.open === 'results') g.screens.closeResults();
     if (g.state === 'title') g.startFree();
     this.rig.xr = true;
+    this.hud.show(false); // the DOM is not in the headset: its canvases need not be drawn
     this.agents.inVR = true;
     this.agents.term.fixed = TERM_SIZE;
     this.agents.term.fit();
@@ -227,6 +228,7 @@ export class VRMode {
       this.tier = null;
     }
     this.rig.snap = true;
+    this.hud.show(!!this.settings.hud);
     this.agents.inVR = false;
     this.agents.term.fixed = null;
     this.agents.term.fit();

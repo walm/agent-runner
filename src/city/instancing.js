@@ -81,12 +81,19 @@ export function chunkedInstances({ items, geometry, material, chunk = 300, attrs
 // Small props are invisible beyond a few hundred metres; skip their chunks entirely. scale: the light VR city pulls
 // every distance in.
 export function cullChunks(root, camPos, scale = 1) {
-  root.traverse((g) => {
+  // the groups with a cull distance, found once: walking the whole scene every frame is most of the cost
+  let groups = root.userData.cullGroups;
+  if (!groups) {
+    groups = [];
+    root.traverse((g) => { if (g.userData.maxDist !== undefined && g.children.length) groups.push(g); });
+    root.userData.cullGroups = groups;
+  }
+  for (const g of groups) {
     const d = g.userData.maxDist * scale;
-    if (!d || d === Infinity) return;
+    if (!d || d === Infinity) continue;
     for (const m of g.children) {
       const bs = m.geometry.boundingSphere;
       m.visible = camPos.distanceTo(bs.center) - bs.radius < d;
     }
-  });
+  }
 }

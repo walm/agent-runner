@@ -3,7 +3,9 @@ import * as THREE from 'three/webgpu';
 import { CITY, districtSeedAt, groundAt } from '../city/layout.js';
 import { SKY_ALT } from '../life/skytraffic.js';
 import { U } from '../core/shared.js';
+import { esc } from '../core/esc.js';
 import { Autopilot, MODES, MODE_NAMES } from './autopilot.js';
+import { PAD } from '../core/input.js';
 
 const DEG = 180 / Math.PI;
 const bearingOf = (dx, dz) => ((Math.atan2(dx, -dz) * DEG) + 360) % 360;
@@ -96,8 +98,48 @@ export class Game {
     this.screens.atTitle = false;
     this.rig.snap = true;
     this.hud.show(!!this.settings.hud);
-    this.hud.setHints(this.touch);
+    this.hintDevice = this.input.lastDevice;
+    this.hud.setHints(this.touch, this.hintDevice === 'gamepad');
     this.flags.startT = this.clock;
+  }
+
+  // the gamepad, by what is open: in the game its buttons are the keys' actions and the HUD's buttons; in a menu
+  // they move through it (ui/padnav.js), in the agents list they choose, in the terminal they scroll (agents.js)
+  pad(dt) {
+    const inp = this.input, e = inp.padEdges, nav = this.padnav;
+    const o = this.screens.open;
+    if (this.state === 'title') {
+      if (o === 'pause') { nav?.update(this.screens.pause, inp, dt); if (e.has(PAD.B)) this.screens.closePause(); return; }
+      const clicked = nav?.update(this.screens.title, inp, dt);
+      if (!clicked && (e.has(PAD.A) || e.has(PAD.START))) this.startFree();
+      return;
+    }
+    if (this.state === 'loading') return;
+    if (!o) {
+      nav?.clear();
+      if (e.has(PAD.A)) this.action('confirm');
+      if (e.has(PAD.B)) this.action('horn');
+      if (e.has(PAD.X)) this.action('agents');
+      if (e.has(PAD.Y)) this.action('camera');
+      if (e.has(PAD.BACK)) this.action('map');
+      if (e.has(PAD.START)) this.action('pause');
+      if (e.has(PAD.RS)) this.action('autopilot');
+      // the radio's buttons on the HUD
+      if (e.has(PAD.UP)) this.hud.onRadioCmd?.('power');
+      if (e.has(PAD.DOWN)) this.hud.onRadioCmd?.('station');
+      if (e.has(PAD.LEFT)) this.hud.onRadioCmd?.('prev');
+      if (e.has(PAD.RIGHT)) this.hud.onRadioCmd?.('next');
+      return;
+    }
+    if (o === 'agents') return this.agents.padList(inp, dt);
+    if (o === 'terminal') return; // agents.js reads it there
+    if (o === 'map') {
+      this.screens.padMap(inp, dt, (x, z) => this.setWaypoint(x, z));
+      if (e.has(PAD.B) || e.has(PAD.BACK) || e.has(PAD.START)) this.action('pause');
+      return;
+    }
+    nav?.update(o === 'pause' ? this.screens.pause : this.screens.results, inp, dt);
+    if (e.has(PAD.B) || e.has(PAD.START)) this.action('pause');
   }
 
   pauseToggle(tab) {
@@ -190,6 +232,10 @@ export class Game {
   update(dt) {
     this.clock += dt;
     const k = this.kite;
+    // polled every frame, menu or no menu: a gamepad's buttons are edges the poll detects, so without it Start
+    // could open the menu but never close it (and never start the game from the title)
+    const polled = this.input.poll();
+    this.pad(dt);
     const actions = this.input.take();
     if (this.state === 'title') {
       this.attract.update(dt);
@@ -206,7 +252,7 @@ export class Game {
     const overlay = this.screens.open;
     if (overlay === 'map') this.screens.drawMap(this.mapState());
 
-    let c = overlay ? ZERO : this.input.poll();
+    let c = overlay ? ZERO : polled;
     if (this.bot && !overlay) c = this.bot.controls(this);
     else if (this.autopilot.on && !overlay && this.state === 'play') {
       // the player's own hands on the controls take the car back
@@ -269,7 +315,7 @@ export class Game {
     else if (a === 'horn') this.sound.horn();
     else if (a === 'radio') {
       const on = this.sound.toggleRadio(), t = this.music?.current;
-      this.hud.toast(on ? `RADIO ON · ${t && t.category !== 'neon fm' ? t.title.toUpperCase() : 'NEON FM 88.1'}` : 'RADIO OFF');
+      this.hud.toast(on ? `RADIO ON · ${t && t.category !== 'neon fm' ? esc(t.title.toUpperCase()) : 'NEON FM 88.1'}` : 'RADIO OFF');
       this.screens.updateRadio();
     }
     else if (a === 'next') { if (this.music && !this.music.next()) this.hud.toast('NEON FM IS LIVE · PICK THE LIBRARY IN RADIO'); }
@@ -383,6 +429,8 @@ export class Game {
 
   updateHud(dt, c) {
     const k = this.kite, cam = this.camera;
+    // the hints follow whatever was touched last: the keys, or the pad
+    if (this.input.lastDevice !== this.hintDevice) { this.hintDevice = this.input.lastDevice; this.hud.setHints(this.touch, this.hintDevice === 'gamepad'); }
     if (this.autopilot.on && (this.apShown = (this.apShown || 0) + dt) > 0.25) { this.apShown = 0; this.hud.autopilot(this.autopilot.mode, this.autopilot.describe()); }
     cam.getWorldDirection(this.dir);
     const bearing = bearingOf(this.dir.x, this.dir.z);
@@ -423,7 +471,7 @@ export class Game {
     this.hud.update({
       speed: k.speed, boost: k.boosting ? 1 : Math.min(1, k.boostHeat || 0), mode: k.mode, lane, district: this.district,
       bearing, heading: -bearing / DEG, x: k.pos.x, z: k.pos.z, alt: k.pos.y, groundY: groundAt(this.city, k.pos.x, k.pos.z, k.pos.y), vy: k.vel.y,
-      markers, mapMarkers, route: this.nav?.line(),
+      markers, mapMarkers, route: this.nav?.line(), paused: !!this.screens.open,
     }, dt);
   }
 

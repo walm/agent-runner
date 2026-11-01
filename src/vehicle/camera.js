@@ -5,9 +5,8 @@ import { groundAt, queryBoxes } from '../city/layout.js';
 
 const _boxes = [];
 const _v = new THREE.Vector3();
-const _m = new THREE.Matrix4();
-const _q = new THREE.Quaternion();
-const _up = new THREE.Vector3(0, 1, 0);
+// scratch for update(): the rig runs every frame, so nothing is allocated there
+const _fwd = new THREE.Vector3(), _target = new THREE.Vector3(), _want = new THREE.Vector3(), _ahead = new THREE.Vector3();
 
 // first hit of the segment a->b against the city's boxes, as a fraction of its length
 function segmentHit(city, a, b) {
@@ -79,18 +78,16 @@ export class CameraRig {
     dy = Math.atan2(Math.sin(dy), Math.cos(dy));
     this.yaw += dy * (this.snap ? 1 : lag);
 
-    const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    const fwd = _fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     // vertical follows with a little lag so climbs and drops read on screen; horizontal is locked to the car
     if (this.snap || this.ty === undefined) this.ty = k.pos.y;
     this.ty += (k.pos.y - this.ty) * (1 - Math.exp(-dt * (air ? 5 : 14)));
-    const target = new THREE.Vector3(k.pos.x, this.ty + 0.75, k.pos.z);
+    const target = _target.set(k.pos.x, this.ty + 0.75, k.pos.z);
     let fovT = this.fovBase + Math.min(24, sp * 0.17) + (k.boosting ? 8 : 0);
 
     if (this.mode === 'hood') {
-      const p = new THREE.Vector3(0, 1.38, -0.15).applyEuler(k.model.rotation).add(k.pos);
-      const ahead = new THREE.Vector3(0, 1.1, -30).applyEuler(k.model.rotation).add(k.pos);
-      this.pos.copy(p);
-      this.look.copy(ahead);
+      this.pos.set(0, 1.38, -0.15).applyEuler(k.model.rotation).add(k.pos);
+      this.look.copy(_ahead.set(0, 1.1, -30).applyEuler(k.model.rotation).add(k.pos));
       fovT += 6;
     } else {
       const far = this.mode === 'far';
@@ -98,7 +95,8 @@ export class CameraRig {
       const hT = (air ? 2.8 - k.vel.y * 0.05 : 1.9) * (far ? 1.7 : 1);
       this.dist += (distT - this.dist) * (1 - Math.exp(-dt * 2));
       this.height += (hT - this.height) * (1 - Math.exp(-dt * 2.5));
-      const want = target.clone().addScaledVector(fwd, -this.dist).add(new THREE.Vector3(0, this.height, 0));
+      const want = _want.copy(target).addScaledVector(fwd, -this.dist);
+      want.y += this.height;
       // keep line of sight to the car
       const t = segmentHit(this.city, target, want);
       const pullT = t < 1 ? Math.max(0.12, t - 0.05) : 1;
@@ -108,7 +106,8 @@ export class CameraRig {
       if (want.y < g) want.y = g;
       clearOfSigns(this.city, want);
       this.pos.copy(want);
-      this.look.copy(target).addScaledVector(fwd, 6).add(new THREE.Vector3(0, air ? 0.2 : 0.55, 0));
+      this.look.copy(target).addScaledVector(fwd, 6);
+      this.look.y += air ? 0.2 : 0.55;
     }
     this.snap = false;
     this.fov += (fovT - this.fov) * (1 - Math.exp(-dt * 3));
