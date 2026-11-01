@@ -290,7 +290,20 @@ export class Game {
   once(key) {
     if (this.flags[key]) return;
     this.flags[key] = true;
-    this.radio(RADIO[key], true);
+    this.radio(key === 'start' ? this.welcome() : RADIO[key], true);
+    if (key === 'start') this.onWelcome?.();
+  }
+
+  // the radio's first words on the first ride: who is on shift, who needs you, then the weather
+  welcome() {
+    const on = [...(this.agents?.feed.agents.values() || [])].filter((a) => a.status !== 'offline');
+    const n = on.length, need = on.filter((a) => a.status === 'waiting' || a.status === 'error').length;
+    let t = 'Welcome to Agent Runner. ';
+    if (!n) t += 'The city is quiet today: no agents on shift yet.';
+    else if (n >= 3) t += `Today we have a packed schedule: ${words(n)} agents working hard.`;
+    else t += `Today we have ${words(n)} agent${n > 1 ? 's' : ''} working hard.`;
+    if (need) t += n === 1 ? ' It needs you.' : ` ${words(need, true)} of them need${need === 1 ? 's' : ''} you.`;
+    return [RADIO.start[0], `${t} ${RADIO.start[1]}`];
   }
 
   radio(line, force) {
@@ -302,7 +315,8 @@ export class Game {
 
   updateWorldFlags() {
     const k = this.kite;
-    if (this.state === 'play' && this.flags.startT !== undefined && this.clock - this.flags.startT > 4) { this.once('start'); }
+    // the welcome waits (up to 20 s) for the agent list, and for the voice when it will be read
+    if (this.state === 'play' && this.flags.startT !== undefined && this.clock - this.flags.startT > 4 && (this.welcomeReady?.() !== false || this.clock - this.flags.startT > 20)) { this.once('start'); }
     if (k.pos.y > CITY.cloudBase && k.pos.y < CITY.cloudTop) this.once('cloud');
     if (k.pos.y > CITY.cloudTop + 40) this.once('above');
     if (k.mode === 'ground' && k.pos.y > CITY.zenith.pad - 2 && Math.hypot(k.pos.x, k.pos.z) < 30) this.once('pad');
@@ -386,4 +400,11 @@ export class Game {
     this.camera.getWorldDirection(this.dir);
     return { markers, route: this.nav?.line(), player: { x: this.kite.pos.x, z: this.kite.pos.z, bearing: Math.atan2(this.dir.x, -this.dir.z) } };
   }
+}
+
+// a count as it reads aloud
+const NUMBERS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+function words(n, capital = false) {
+  const w = NUMBERS[n] || String(n);
+  return capital ? w[0].toUpperCase() + w.slice(1) : w;
 }

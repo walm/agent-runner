@@ -88,6 +88,8 @@ export class MusicPlayer {
     this.breaks = []; // announcements waiting for the end of the track
     this.fails = 0; // tracks in a row that would not play
     this.lines = 0; // NEON FM's lines read so far
+    this.live = false; // the first ride's welcome is out: before that, the DJ's lines wait in held
+    this.held = [];
     this.inBreak = false;
     for (const s of this.sources) {
       s.onEnded = () => this.ended();
@@ -215,6 +217,8 @@ export class MusicPlayer {
 
   announce(a) {
     if (!this.settings.radioDj) return;
+    // on the title nobody hears it: the last few wait for the welcome (goLive)
+    if (!this.live) { this.held.push(a); if (this.held.length > 3) this.held.shift(); return; }
     // a break waits for the track to end; NEON FM never ends, and with the radio off there is nothing to wait for
     if (a.when === 'break' && this.speaks && this.source && !this.source.live && this.sound.radio) { this.breaks.push(a); return; }
     this.read(a);
@@ -226,6 +230,13 @@ export class MusicPlayer {
       this.sound.ident();
       this.voice.announce(a.id, a.from, a.text);
     }
+  }
+
+  // the welcome has been read: what the DJ said meanwhile follows it, unless it is old news
+  goLive() {
+    if (this.live) return;
+    this.live = true;
+    for (const a of this.held.splice(0)) if (Date.now() - a.at < 180000) this.announce({ ...a, when: 'now' });
   }
 
   // a line of NEON FM's own (the HUD has shown it already)

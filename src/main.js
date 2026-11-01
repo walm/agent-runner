@@ -288,6 +288,8 @@ async function boot() {
   }
   game = new Game({ city, kite, rig, camera, input, hud, screens, sound, music: radio, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
   game.onRadioLine = (who, text) => radio.speakLine(who, text);
+  game.onWelcome = () => radio.goLive();
+  game.welcomeReady = () => !!agents.feed.synced && (!settings.voice || !settings.radioVoice || voice.ready);
   agents.bind(game);
   // a lighter VR city (the tiers are in xr/vr.js): modelled facades and shopfronts only close by (the photo facades
   // take over sooner), Temple Street's props at lower detail, no sky traffic, thinner rain; null puts it all back

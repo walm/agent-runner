@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const DJ = { agent: 'demo-radio', name: 'Agent Radio' };
 
 export const SHOW = [
-  { category: 'synthwave', from: 'AGENT RADIO', announce: 'Good evening, city. You are tuned to Agent Radio, the station your agents run. Four of them are on shift tonight, and one is waiting for you.' },
+  { category: 'synthwave', from: 'AGENT RADIO', announce: 'You are tuned to Agent Radio, the station your agents run. News from your queues, and music for the drive.' },
   { from: 'GITHUB', when: 'break', announce: 'Pull request one forty two, add retries to the payment webhook, has two approvals and green checks. It is ready to merge.' },
   { from: 'SLACK · #PLATFORM', announce: 'From the platform channel: the staging database migration finished in eleven minutes, and the deploy freeze lifts at six.' },
   { category: 'cyberpunk', from: 'CI', announce: 'The nightly build failed on the billing service: two tests time out against the sandbox. The last green build was yesterday at noon.' },

@@ -55,6 +55,7 @@ export class AgentFeed {
         this.agents.set(a.id, a);
         this.onAgent?.(a, { initial: true, prev: prev?.status });
       }
+      this.synced = true; // the list is in
       this.setConnected(true);
       this.onSnapshot?.();
     });
