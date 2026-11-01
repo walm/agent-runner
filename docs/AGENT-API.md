@@ -43,7 +43,7 @@ An agent not heard from for 15 minutes shows as `offline`. One that is silent fo
 | `GET /api/music/file?id=…` | A track's audio, with byte ranges (`HEAD` fetches a catalogue track into the cache ahead of time). |
 | `GET /api/voice/<file>` | A file of the voice model, from the server's cache (downloaded from Hugging Face on the first request). Only the pinned revision's files. |
 | `GET /api/agents` | `[{ id, name, harness, status, last, meta, firstSeen, lastSeen, seq }]` |
-| `POST /api/agents/:id/input` | The game only: `{ text }`, what the driver said. Typed into the agent's terminal or put in its inbox (see [Talking to an agent](#talking-to-an-agent)). Returns `{ ok, kind, label, typed? , queued?, why? }`. |
+| `POST /api/agents/:id/input` | The game only: `{ text }` (what the driver said), `{ choose: 1…9 }` (an option picked in the game's list) or `{ answer: 'yes' \| 'no' }`. Typed into the agent's terminal or put in its inbox (see [Talking to an agent](#talking-to-an-agent)). Returns `{ ok, kind, label, typed? , queued?, why? }`. |
 | `GET /api/agents/:id/inbox` | `{ ok, messages: [{ at, said, kind, keys }] }`: what was said to the agent and could not be typed. Reading empties it. |
 | `GET /api/stt/<file>` | The speech model the game hears the driver with (Whistle and the Needle engine), from the server's cache. |
 | `GET /api/agents/:id/output` | `{ id, text, seq }`: the buffered output. `seq` counts every character ever appended. |
