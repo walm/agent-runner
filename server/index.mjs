@@ -11,12 +11,16 @@ import { Store, validate, validateBillboard, LIMITS } from './store.mjs';
 import { runMock, BILLBOARDS } from './mock.mjs';
 import { runRadioDemo } from './radio-demo.mjs';
 import { ADAPTERS } from './adapters.mjs';
-import { serveVoiceFile } from './models.mjs';
+import { serveModelFile } from './models.mjs';
+import { locate, type } from './typer.mjs';
+import { intent } from '../src/agents/intent.js';
 import { Radio, library, categoriesOf, serveTrack } from './music.mjs';
 
 const PORT = +(process.env.PORT || 5210);
 const HOST = process.env.HOST || '127.0.0.1';
 const TOKEN = process.env.AGENT_CITY_TOKEN || '';
+// AGENT_CITY_INPUT=off: what the driver says is never typed into an agent's terminal (it still reaches the inbox)
+const TYPING = !/^(0|off|false|no)$/i.test(process.env.AGENT_CITY_INPUT || '');
 const MAX_BODY = 1024 * 1024;
 const DIST = process.env.AGENT_CITY_DIST ? join(process.env.AGENT_CITY_DIST, '/') : fileURLToPath(new URL('../dist/', import.meta.url));
 const args = new Set(process.argv.slice(2));
@@ -134,6 +138,49 @@ function authorised(req) {
   return !TOKEN || req.headers.authorization === `Bearer ${TOKEN}` || new URL(req.url, 'http://x').searchParams.get('token') === TOKEN;
 }
 
+// Typing into a terminal is as good as being at its keyboard, so it is only taken from the game itself: a custom
+// header (a page on another site has to ask first, and the OPTIONS answer does not allow it), and not a cross-site
+// request by the browser's own account (Sec-Fetch-Site).
+function fromTheGame(req) {
+  if (req.headers['x-agent-runner'] !== 'input') return false;
+  const site = req.headers['sec-fetch-site'];
+  return !site || site === 'same-origin' || site === 'none';
+}
+
+// what the driver said, for one agent: what it means at the agent's prompt (intent.js), then typed or queued
+const inboxes = new Map(); // agent id -> [{ at, said, kind, keys }]
+let typing = Promise.resolve(); // one at a time: two lines must not interleave their keys
+async function talk(id, body) {
+  const a = store.agents.get(id);
+  if (!a) return { ok: false, error: 'no such agent' };
+  const text = typeof body?.text === 'string' ? body.text.trim().slice(0, 2000) : '';
+  if (!text) return { ok: false, error: 'nothing was said' };
+  const meant = intent(text, { status: store.status(a), prompt: a.meta.prompt, choices: a.meta.choices });
+  if (!meant.keys.length) return { ok: false, error: 'nothing to send', ...meant };
+  const C = { cyan: '\x1b[36m', grey: '\x1b[90m', red: '\x1b[31m', reset: '\x1b[0m', bold: '\x1b[1m' };
+  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}🎙 ${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
+  const queue = (why) => {
+    const list = inboxes.get(id) || [];
+    list.push({ at: Date.now(), said: text, kind: meant.kind, keys: meant.keys });
+    inboxes.set(id, list.slice(-20));
+    store.emit('input', { agent: id, said: text, kind: meant.kind });
+    echo(`in its inbox (${why})`, false);
+    return { ok: true, queued: true, why, kind: meant.kind, label: meant.label };
+  };
+  if (!TYPING) return queue('typing is off on this server');
+  if (a.meta.input === 'inbox') return queue('it reads its inbox');
+  const run = typing.then(async () => {
+    const where = await locate(a);
+    if (!where.via) return queue(where.why);
+    const r = await type(where, meant.keys);
+    if (!r.ok) return queue(r.error);
+    echo(r.label);
+    return { ok: true, typed: r.label, kind: meant.kind, label: meant.label };
+  });
+  typing = run.catch(() => {});
+  return run;
+}
+
 async function readJson(req, res) {
   // parsed as JSON whatever the Content-Type: `curl -d` sends a form type
   try { return JSON.parse(await readBody(req)); } catch (e) {
@@ -165,6 +212,7 @@ const server = http.createServer(async (req, res) => {
       try { text = await readBody(req); } catch (e) { return send(res, 413, { ok: false, error: e.message }); }
       const q = Object.fromEntries([...url.searchParams].filter(([k, v]) => v !== '' && k !== 'token'));
       const e = { agent: q.agent, name: q.name, harness: q.harness, status: q.status, end: q.end === 'true' || q.end === '1' };
+      if (+q.pid > 1) e.meta = { pid: +q.pid, ...(q.host ? { host: q.host } : {}) };
       if (text) e[q.as === 'message' ? 'message' : 'text'] = text;
       const r = ingest(e);
       return send(res, r.ok ? 200 : 400, r);
@@ -176,7 +224,7 @@ const server = http.createServer(async (req, res) => {
       if (!adapt) return send(res, 404, { ok: false, error: `no adapter for "${hook[1]}" (have: ${Object.keys(ADAPTERS).join(', ')})` });
       const body = await readJson(req, res);
       if (body === undefined) return;
-      const e = adapt(body, { host: url.searchParams.get('host') || undefined });
+      const e = adapt(body, { host: url.searchParams.get('host') || undefined, pid: url.searchParams.get('pid') || undefined });
       if (e.error) return send(res, 400, { ok: false, error: e.error });
       const r = ingest(e);
       return send(res, r.ok ? 200 : 400, r);
@@ -208,6 +256,24 @@ const server = http.createServer(async (req, res) => {
       return res.end(b.image);
     }
     if (path === '/api/agents' && req.method === 'GET') return send(res, 200, store.list());
+    // the driver talking to an agent from the game's terminal (src/agents/talk.js): typed into the agent's own
+    // terminal (typer.mjs), or left in its inbox
+    const said = path.match(/^\/api\/agents\/(.+)\/input$/);
+    if (said && req.method === 'POST') {
+      if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
+      if (!fromTheGame(req)) return send(res, 403, { ok: false, error: 'only the game can talk to agents (send X-Agent-Runner: input, from its own origin)' });
+      const body = await readJson(req, res);
+      if (body === undefined) return;
+      return send(res, 200, await talk(decodeURIComponent(said[1]), body));
+    }
+    const inbox = path.match(/^\/api\/agents\/(.+)\/inbox$/);
+    if (inbox && req.method === 'GET') {
+      if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
+      const id = decodeURIComponent(inbox[1]);
+      const list = inboxes.get(id) || [];
+      inboxes.delete(id);
+      return send(res, 200, { ok: true, messages: list });
+    }
     const m = path.match(/^\/api\/agents\/(.+)\/output$/);
     if (m && req.method === 'GET') {
       const out = store.output(decodeURIComponent(m[1]));
@@ -225,7 +291,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     // the agent voice's model, downloaded once and kept on disk (models.mjs)
-    if (path.startsWith('/api/voice/') && req.method === 'GET') return serveVoiceFile(req, res, path.slice('/api/voice/'.length));
+    if (path.startsWith('/api/voice/') && req.method === 'GET') return serveModelFile('voice', req, res, path.slice('/api/voice/'.length));
+    // the speech recognition the game runs to hear the driver (Whistle), the same way
+    if (path.startsWith('/api/stt/') && (req.method === 'GET' || req.method === 'HEAD')) return serveModelFile('stt', req, res, path.slice('/api/stt/'.length));
     // the radio: its music (music.mjs) and the agent that DJs it
     if (path === '/api/music' && req.method === 'GET') {
       const tracks = await library();
