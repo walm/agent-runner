@@ -8,8 +8,9 @@ import { U } from '../core/shared.js';
 import { chunkedInstances } from './instancing.js';
 import { hash12 } from '../tsl/util.js';
 
-const HEI = "'Chiron Hei HK Variable', 'PingFang HK', sans-serif";
-const SUNG = "'Chiron Sung HK Variable', 'Songti TC', serif";
+// display faces for the boards: a heavy sans and a classic serif
+const HEI = "'Oxanium Variable', 'Helvetica Neue', Arial, sans-serif";
+const SUNG = "Georgia, 'Times New Roman', serif";
 const OX = "'Oxanium Variable', sans-serif";
 const MONO = "'JetBrains Mono Variable', monospace";
 
@@ -51,10 +52,10 @@ const ADS = [
     g.fillStyle = '#07070a'; g.fillRect(0, 0, W, H);
     g.strokeStyle = 'rgba(255,40,70,0.35)'; g.lineWidth = s * 0.004;
     for (let r = 1; r < 7; r++) { g.beginPath(); g.arc(W * (tall ? 0.5 : 0.78), H * (tall ? 0.7 : 0.5), s * 0.09 * r, 0, Math.PI * 2); g.stroke(); }
-    if (tall) vtext(g, '義體', W * 0.5, H * 0.2, s * 0.62, `900 SIZEpx ${HEI}`, '#ff2846');
-    else text(g, '義體', W * 0.32, H * 0.45, `900 ${s * 0.56}px ${HEI}`, '#ff2846');
+    if (tall) vtext(g, 'AUG', W * 0.5, H * 0.14, s * 0.34, `900 SIZEpx ${HEI}`, '#ff2846', 1.08);
+    else text(g, 'AUG', W * 0.32, H * 0.45, `900 ${s * 0.46}px ${HEI}`, '#ff2846', { maxW: W * 0.55 });
     text(g, 'CHROME CLINIC', tall ? W * 0.5 : W * 0.32, tall ? H * 0.86 : H * 0.84, `700 ${s * 0.085}px ${OX}`, '#f4f4f6', { spacing: s * 0.02, maxW: (tall ? W : W * 0.55) * 0.9 });
-    text(g, '24H · 無痛升級 · 分期付款', tall ? W * 0.5 : W * 0.32, tall ? H * 0.92 : H * 0.94, `500 ${s * 0.05}px ${HEI}`, '#ff8090', { maxW: W * 0.9 });
+    text(g, '24H · PAINLESS UPGRADES · EASY CREDIT', tall ? W * 0.5 : W * 0.32, tall ? H * 0.92 : H * 0.94, `500 ${s * 0.05}px ${HEI}`, '#ff8090', { maxW: W * 0.9 });
   },
   // energy drink
   (g, W, H, tall, s) => {
@@ -67,15 +68,15 @@ const ADS = [
     g.beginPath(); g.moveTo(cw * 0.08, -ch * 0.32); g.lineTo(-cw * 0.2, ch * 0.04); g.lineTo(cw * 0.02, ch * 0.04); g.lineTo(-cw * 0.1, ch * 0.32); g.lineTo(cw * 0.22, -ch * 0.06); g.lineTo(0, -ch * 0.06); g.closePath(); g.fill();
     g.restore();
     text(g, 'VOLT', W * (tall ? 0.5 : 0.28), H * (tall ? 0.12 : 0.42), `italic 800 ${s * (tall ? 0.42 : 0.4)}px ${OX}`, '#0b0b0b', { maxW: (tall ? W : W * 0.5) * 0.94 });
-    text(g, '雷霆能量', W * (tall ? 0.5 : 0.28), H * (tall ? 0.9 : 0.78), `900 ${s * 0.12}px ${HEI}`, '#0b0b0b', { spacing: s * 0.03 });
+    text(g, 'THUNDER ENERGY', W * (tall ? 0.5 : 0.28), H * (tall ? 0.9 : 0.78), `900 ${s * 0.09}px ${HEI}`, '#0b0b0b', { spacing: s * 0.02, maxW: (tall ? W : W * 0.5) * 0.92 });
   },
   // bank
   (g, W, H, tall, s) => {
     g.fillStyle = grad(g, 0, 0, 0, H, [[0, '#0a1430'], [1, '#02040c']]); g.fillRect(0, 0, W, H);
     g.strokeStyle = 'rgba(232,196,110,0.55)'; g.lineWidth = s * 0.006;
     for (let r = 0; r < 9; r++) { g.beginPath(); g.arc(W * 0.5, tall ? H * 0.32 : H * 1.25, s * (0.12 + r * 0.075), Math.PI, 0); g.stroke(); }
-    if (tall) vtext(g, '天頂銀行', W * 0.5, H * 0.5, s * 0.2, `700 SIZEpx ${SUNG}`, '#e8c46e', 1.12);
-    else text(g, '天頂銀行', W * 0.5, H * 0.42, `700 ${s * 0.3}px ${SUNG}`, '#e8c46e', { spacing: s * 0.05 });
+    if (tall) vtext(g, 'ZB', W * 0.5, H * 0.56, s * 0.3, `700 SIZEpx ${SUNG}`, '#e8c46e', 1.12);
+    else text(g, 'ZENITH', W * 0.5, H * 0.42, `700 ${s * 0.26}px ${SUNG}`, '#e8c46e', { spacing: s * 0.05, maxW: W * 0.9 });
     text(g, 'ZENITH BANK', W * 0.5, tall ? H * 0.42 : H * 0.7, `600 ${s * 0.07}px ${OX}`, '#f3e3b8', { spacing: s * 0.04 });
     text(g, 'TRUST THE ALTITUDE', W * 0.5, tall ? H * 0.96 : H * 0.86, `400 ${s * 0.04}px ${OX}`, '#9aa4c4', { spacing: s * 0.03 });
   },
@@ -85,7 +86,7 @@ const ADS = [
     g.strokeStyle = 'rgba(255,255,255,0.28)'; g.lineWidth = s * 0.003;
     for (let r = 1; r < 22; r++) { g.beginPath(); g.ellipse(W * 0.5, H * (tall ? 0.38 : 0.5), s * 0.03 * r, s * 0.03 * r * 0.55, 0, 0, Math.PI * 2); g.stroke(); }
     text(g, 'SYNAPSE', W * 0.5, H * (tall ? 0.7 : 0.5), `200 ${s * 0.16}px ${OX}`, '#ffffff', { spacing: s * 0.05, maxW: W * 0.92 });
-    text(g, '感知一切', W * 0.5, H * (tall ? 0.8 : 0.72), `700 ${s * 0.1}px ${HEI}`, '#ffe0f4', { spacing: s * 0.06 });
+    text(g, 'SENSE ALL', W * 0.5, H * (tall ? 0.8 : 0.72), `700 ${s * 0.1}px ${HEI}`, '#ffe0f4', { spacing: s * 0.06, maxW: W * 0.92 });
     text(g, 'FEEL EVERYTHING', W * 0.5, H * (tall ? 0.86 : 0.84), `500 ${s * 0.04}px ${OX}`, '#ffd0ef', { spacing: s * 0.05 });
   },
   // noodles
@@ -94,8 +95,8 @@ const ADS = [
     g.fillStyle = '#ffd23f'; g.beginPath(); g.arc(W * (tall ? 0.5 : 0.72), H * (tall ? 0.62 : 0.66), s * 0.34, 0, Math.PI); g.fill();
     g.strokeStyle = 'rgba(255,255,255,0.75)'; g.lineWidth = s * 0.012; g.lineCap = 'round';
     for (let i = -1; i <= 1; i++) { const cx = W * (tall ? 0.5 : 0.72) + i * s * 0.12; g.beginPath(); g.moveTo(cx, H * (tall ? 0.56 : 0.56)); g.bezierCurveTo(cx - s * 0.05, H * 0.46, cx + s * 0.05, H * 0.4, cx, H * (tall ? 0.36 : 0.22)); g.stroke(); }
-    text(g, '麵', W * (tall ? 0.5 : 0.25), H * (tall ? 0.2 : 0.48), `900 ${s * (tall ? 0.6 : 0.7)}px ${SUNG}`, '#ffffff');
-    text(g, '牛肉麵 $28', W * (tall ? 0.5 : 0.72), H * (tall ? 0.88 : 0.9), `700 ${s * 0.09}px ${HEI}`, '#2a0a00');
+    text(g, 'RAMEN', W * (tall ? 0.5 : 0.25), H * (tall ? 0.2 : 0.48), `900 ${s * (tall ? 0.26 : 0.3)}px ${SUNG}`, '#ffffff', { maxW: (tall ? W : W * 0.46) * 0.94 });
+    text(g, 'BEEF NOODLES $28', W * (tall ? 0.5 : 0.72), H * (tall ? 0.88 : 0.9), `700 ${s * 0.07}px ${HEI}`, '#2a0a00', { maxW: (tall ? W : W * 0.5) * 0.94 });
   },
   // flying cars
   (g, W, H, tall, s) => {
@@ -108,7 +109,7 @@ const ADS = [
     }
     g.globalAlpha = 1;
     text(g, 'NOVA AERO', W * (tall ? 0.5 : 0.66), H * (tall ? 0.72 : 0.42), `800 ${s * 0.12}px ${OX}`, '#ffffff', { spacing: s * 0.02, maxW: (tall ? W : W * 0.6) * 0.92 });
-    text(g, '新星飛行 · 直航月台', W * (tall ? 0.5 : 0.66), H * (tall ? 0.8 : 0.66), `600 ${s * 0.065}px ${HEI}`, '#dff8ff', { maxW: (tall ? W : W * 0.6) * 0.92 });
+    text(g, 'DIRECT TO THE MOON DOCKS', W * (tall ? 0.5 : 0.66), H * (tall ? 0.8 : 0.66), `600 ${s * 0.065}px ${HEI}`, '#dff8ff', { maxW: (tall ? W : W * 0.6) * 0.92 });
   },
   // dim sum
   (g, W, H, tall, s) => {
@@ -120,8 +121,8 @@ const ADS = [
       g.beginPath(); g.arc(cx, cy, s * 0.085, 0, Math.PI * 2); g.stroke();
       g.beginPath(); g.arc(cx, cy, s * 0.05, 0, Math.PI * 2); g.stroke();
     }
-    text(g, '點心', W * 0.5, H * (tall ? 0.22 : 0.36), `900 ${s * (tall ? 0.42 : 0.42)}px ${SUNG}`, '#ffcf4d', { spacing: s * 0.04 });
-    text(g, 'DIM SUM 24/7', W * 0.5, H * (tall ? 0.4 : 0.58), `700 ${s * 0.07}px ${OX}`, '#fff3cf', { spacing: s * 0.03 });
+    text(g, 'DIM SUM', W * 0.5, H * (tall ? 0.22 : 0.36), `900 ${s * (tall ? 0.24 : 0.3)}px ${SUNG}`, '#ffcf4d', { spacing: s * 0.03, maxW: W * 0.92 });
+    text(g, 'STEAMED FRESH · 24/7', W * 0.5, H * (tall ? 0.4 : 0.58), `700 ${s * 0.07}px ${OX}`, '#fff3cf', { spacing: s * 0.03 });
   },
   // manufacturing corp
   (g, W, H, tall, s) => {
@@ -131,7 +132,7 @@ const ADS = [
     g.fillStyle = '#e1001a'; g.fillRect(W * (tall ? 0.18 : 0.06), H * (tall ? 0.1 : 0.18), s * 0.32, s * 0.32);
     g.fillStyle = '#ecebe6'; g.fillRect(W * (tall ? 0.18 : 0.06) + s * 0.1, H * (tall ? 0.1 : 0.18) + s * 0.1, s * 0.12, s * 0.22);
     text(g, 'KAIZEN-DYNE', tall ? W * 0.5 : W * 0.62, H * (tall ? 0.56 : 0.4), `800 ${s * 0.1}px ${OX}`, '#111', { maxW: (tall ? W : W * 0.62) * 0.92 });
-    text(g, '明日製造', tall ? W * 0.5 : W * 0.62, H * (tall ? 0.66 : 0.62), `700 ${s * 0.11}px ${HEI}`, '#111', { spacing: s * 0.04 });
+    text(g, 'MADE TOMORROW', tall ? W * 0.5 : W * 0.62, H * (tall ? 0.66 : 0.62), `700 ${s * 0.08}px ${HEI}`, '#111', { spacing: s * 0.03, maxW: (tall ? W : W * 0.62) * 0.92 });
     text(g, 'BUILD TOMORROW', tall ? W * 0.5 : W * 0.62, H * (tall ? 0.92 : 0.82), `500 ${s * 0.045}px ${MONO}`, '#e1001a', { spacing: s * 0.02 });
   },
   // pharmacy
@@ -139,7 +140,7 @@ const ADS = [
     g.fillStyle = '#f3fbf5'; g.fillRect(0, 0, W, H);
     const cx = W * (tall ? 0.5 : 0.22), cy = H * (tall ? 0.32 : 0.5), a = s * 0.12;
     g.fillStyle = '#00b86b'; g.fillRect(cx - a, cy - a * 3, a * 2, a * 6); g.fillRect(cx - a * 3, cy - a, a * 6, a * 2);
-    text(g, '藥房', W * (tall ? 0.5 : 0.64), H * (tall ? 0.7 : 0.42), `900 ${s * 0.3}px ${HEI}`, '#00553a', { spacing: s * 0.05 });
+    text(g, 'Rx', W * (tall ? 0.5 : 0.64), H * (tall ? 0.7 : 0.42), `900 ${s * 0.3}px ${HEI}`, '#00553a', { spacing: s * 0.05 });
     text(g, 'PHARMACY · 24H', W * (tall ? 0.5 : 0.64), H * (tall ? 0.84 : 0.76), `700 ${s * 0.06}px ${OX}`, '#00553a', { spacing: s * 0.02, maxW: (tall ? W : W * 0.6) * 0.92 });
   },
   // arcade
@@ -148,7 +149,7 @@ const ADS = [
     const p = s * 0.03;
     for (let i = 0; i < 160; i++) { const r = Math.sin(i * 12.9898) * 43758.5453; const fx = r - Math.floor(r), fy = (r * 7.13) % 1; g.fillStyle = i % 3 ? '#ff4fd8' : '#4fe9ff'; g.fillRect(Math.floor((fx * W) / p) * p, Math.floor((Math.abs(fy) * H) / p) * p, p, p); }
     text(g, 'ARCADE', W * 0.5, H * (tall ? 0.4 : 0.42), `800 ${s * (tall ? 0.2 : 0.24)}px ${MONO}`, '#fff36b', { spacing: s * 0.02, maxW: W * 0.92 });
-    text(g, '遊戲機中心', W * 0.5, H * (tall ? 0.58 : 0.72), `900 ${s * 0.11}px ${HEI}`, '#ffffff', { spacing: s * 0.03, maxW: W * 0.92 });
+    text(g, 'GAME CENTRE', W * 0.5, H * (tall ? 0.58 : 0.72), `900 ${s * 0.1}px ${HEI}`, '#ffffff', { spacing: s * 0.03, maxW: W * 0.92 });
     text(g, 'INSERT COIN', W * 0.5, H * (tall ? 0.9 : 0.9), `500 ${s * 0.045}px ${MONO}`, '#ff4fd8', { spacing: s * 0.04 });
   },
   // the game itself
@@ -157,8 +158,8 @@ const ADS = [
     g.strokeStyle = 'rgba(255,61,242,0.9)'; g.lineWidth = s * 0.006;
     const bx = W * (tall ? 0.5 : 0.82);
     g.beginPath(); g.moveTo(bx - s * 0.03, H); g.lineTo(bx - s * 0.015, H * 0.08); g.lineTo(bx, 0); g.lineTo(bx + s * 0.015, H * 0.08); g.lineTo(bx + s * 0.03, H); g.stroke();
-    if (tall) vtext(g, '霓虹天頂', W * 0.5, H * 0.2, s * 0.2, `700 SIZEpx ${SUNG}`, '#ffffff', 1.1);
-    else text(g, '霓虹天頂', W * 0.4, H * 0.42, `700 ${s * 0.28}px ${SUNG}`, '#ffffff', { spacing: s * 0.04 });
+    if (tall) vtext(g, 'NEON', W * 0.5, H * 0.14, s * 0.26, `700 SIZEpx ${SUNG}`, '#ffffff', 1.1);
+    else text(g, 'NEON', W * 0.4, H * 0.42, `700 ${s * 0.28}px ${SUNG}`, '#ffffff', { spacing: s * 0.04, maxW: W * 0.7 });
     text(g, 'NEON ZENITH · 1418 M', tall ? W * 0.5 : W * 0.4, H * (tall ? 0.94 : 0.74), `400 ${s * 0.05}px ${OX}`, '#ffc8f8', { spacing: s * 0.05, maxW: W * 0.9 });
   },
   // night market
@@ -167,7 +168,7 @@ const ADS = [
     g.fillStyle = '#111';
     const st = s * 0.12;
     for (let x = -H; x < W + H; x += st * 2) { g.beginPath(); g.moveTo(x, tall ? H : H); g.lineTo(x + st, H); g.lineTo(x + st + H * 0.18, H * 0.82); g.lineTo(x + H * 0.18, H * 0.82); g.fill(); }
-    text(g, '夜市', W * 0.5, H * (tall ? 0.3 : 0.38), `900 ${s * (tall ? 0.48 : 0.42)}px ${HEI}`, '#111', { spacing: s * 0.04 });
+    text(g, 'NIGHT', W * 0.5, H * (tall ? 0.3 : 0.38), `900 ${s * (tall ? 0.28 : 0.32)}px ${HEI}`, '#111', { spacing: s * 0.03, maxW: W * 0.92 });
     text(g, 'TEMPLE ST NIGHT MARKET', W * 0.5, H * (tall ? 0.62 : 0.68), `700 ${s * 0.05}px ${OX}`, '#111', { spacing: s * 0.02, maxW: W * 0.92 });
   },
   // clouds real estate
@@ -175,7 +176,7 @@ const ADS = [
     g.fillStyle = grad(g, 0, 0, 0, H, [[0, '#0d1b2a'], [0.5, '#415a77'], [1, '#e0e1dd']]); g.fillRect(0, 0, W, H);
     g.fillStyle = 'rgba(255,255,255,0.5)';
     for (let i = 0; i < 6; i++) { g.beginPath(); g.ellipse(W * ((i * 0.37) % 1), H * (0.62 + (i % 3) * 0.08), s * 0.4, s * 0.05, 0, 0, Math.PI * 2); g.fill(); }
-    text(g, '雲上之家', W * 0.5, H * (tall ? 0.24 : 0.3), `700 ${s * 0.16}px ${SUNG}`, '#ffffff', { spacing: s * 0.06 });
+    text(g, 'CLOUDHOME', W * 0.5, H * (tall ? 0.24 : 0.3), `700 ${s * 0.14}px ${SUNG}`, '#ffffff', { spacing: s * 0.04, maxW: W * 0.92 });
     text(g, 'ORBITAL RESIDENCES', W * 0.5, H * (tall ? 0.33 : 0.48), `500 ${s * 0.05}px ${OX}`, '#dbe7ff', { spacing: s * 0.05, maxW: W * 0.92 });
     text(g, 'YOUR HOME ABOVE THE RAIN', W * 0.5, H * (tall ? 0.92 : 0.9), `400 ${s * 0.035}px ${OX}`, '#1b263b', { spacing: s * 0.04, maxW: W * 0.92 });
   },
@@ -184,8 +185,8 @@ const ADS = [
     g.fillStyle = '#0e3b2a'; g.fillRect(0, 0, W, H);
     g.fillStyle = '#7ed957'; g.beginPath(); g.ellipse(W * (tall ? 0.5 : 0.75), H * (tall ? 0.36 : 0.5), s * 0.16, s * 0.3, 0.6, 0, Math.PI * 2); g.fill();
     g.strokeStyle = '#0e3b2a'; g.lineWidth = s * 0.008; g.beginPath(); g.moveTo(W * (tall ? 0.5 : 0.75) - s * 0.14, H * (tall ? 0.36 : 0.5) + s * 0.2); g.lineTo(W * (tall ? 0.5 : 0.75) + s * 0.14, H * (tall ? 0.36 : 0.5) - s * 0.2); g.stroke();
-    text(g, '綠茶', W * (tall ? 0.5 : 0.32), H * (tall ? 0.74 : 0.42), `900 ${s * 0.26}px ${SUNG}`, '#e9ffd9', { spacing: s * 0.04 });
-    text(g, 'MATCHA · 冷泡', W * (tall ? 0.5 : 0.32), H * (tall ? 0.88 : 0.74), `600 ${s * 0.06}px ${HEI}`, '#7ed957', { spacing: s * 0.03 });
+    text(g, 'GREEN', W * (tall ? 0.5 : 0.32), H * (tall ? 0.74 : 0.42), `900 ${s * 0.2}px ${SUNG}`, '#e9ffd9', { spacing: s * 0.03, maxW: (tall ? W : W * 0.55) * 0.92 });
+    text(g, 'MATCHA · COLD BREW', W * (tall ? 0.5 : 0.32), H * (tall ? 0.88 : 0.74), `600 ${s * 0.06}px ${HEI}`, '#7ed957', { spacing: s * 0.03 });
   },
   // concert
   (g, W, H, tall, s) => {
@@ -193,23 +194,40 @@ const ADS = [
     const cx = W * 0.5, cy = H * (tall ? 0.4 : 0.5);
     for (let r = 12; r > 0; r--) { g.fillStyle = `hsl(${280 + r * 8}, 100%, ${10 + r * 4}%)`; g.beginPath(); g.arc(cx, cy, s * 0.04 * r, 0, Math.PI * 2); g.fill(); }
     text(g, 'MIKA', cx, cy, `800 ${s * 0.22}px ${OX}`, '#ffffff', { spacing: s * 0.04 });
-    text(g, '演唱會 LIVE', W * 0.5, H * (tall ? 0.78 : 0.86), `700 ${s * 0.08}px ${HEI}`, '#ffd1ff', { spacing: s * 0.03 });
+    text(g, 'IN CONCERT · LIVE', W * 0.5, H * (tall ? 0.78 : 0.86), `700 ${s * 0.08}px ${HEI}`, '#ffd1ff', { spacing: s * 0.03 });
     text(g, '03.14 · ZENITH ARENA', W * 0.5, H * (tall ? 0.86 : 0.95), `400 ${s * 0.04}px ${MONO}`, '#c9a0ff', { spacing: s * 0.03, maxW: W * 0.92 });
   },
   // mahjong
   (g, W, H, tall, s) => {
     g.fillStyle = '#04563c'; g.fillRect(0, 0, W, H);
     const tw = s * 0.16, th = s * 0.22;
-    const tiles = ['中', '發', '白'];
+    const tiles = ['M', 'J', '8'];
     tiles.forEach((t, i) => {
       const x = tall ? W * 0.5 - tw / 2 : W * (0.08 + i * 0.13), y = tall ? H * (0.08 + i * 0.13) : H * 0.3;
       g.fillStyle = '#f7f2e4'; g.beginPath(); g.roundRect(x, y, tw, th, tw * 0.12); g.fill();
       text(g, t, x + tw / 2, y + th / 2, `900 ${tw * 0.7}px ${SUNG}`, i === 0 ? '#c8102e' : i === 1 ? '#00843d' : '#1d4ed8');
     });
-    text(g, '麻雀館', W * (tall ? 0.5 : 0.7), H * (tall ? 0.7 : 0.42), `900 ${s * 0.18}px ${HEI}`, '#ffd76a', { spacing: s * 0.04 });
-    text(g, 'MAHJONG · 通宵', W * (tall ? 0.5 : 0.7), H * (tall ? 0.82 : 0.7), `600 ${s * 0.06}px ${OX}`, '#e8ffe9', { spacing: s * 0.03, maxW: (tall ? W : W * 0.55) * 0.92 });
+    text(g, 'MAHJONG', W * (tall ? 0.5 : 0.7), H * (tall ? 0.7 : 0.42), `900 ${s * 0.15}px ${HEI}`, '#ffd76a', { spacing: s * 0.03, maxW: (tall ? W : W * 0.55) * 0.92 });
+    text(g, 'PARLOUR · ALL NIGHT', W * (tall ? 0.5 : 0.7), H * (tall ? 0.82 : 0.7), `600 ${s * 0.06}px ${OX}`, '#e8ffe9', { spacing: s * 0.03, maxW: (tall ? W : W * 0.55) * 0.92 });
   },
 ];
+
+export const AD_SLOTS = ADS.length;
+
+// campaign i, drawn into its tall and its wide cell of the atlas canvas; draw defaults to the built-in campaign
+// (agents' billboards borrow slots: agents/billboards.js). The caller uploads the texture.
+export function paintAd(cv, i, draw = ADS[i]) {
+  const A = cv.width, g = cv.getContext('2d');
+  const pw = A / 8, ph = A / 4, lw = A / 4, lh = A / 8;
+  for (const tall of [true, false]) {
+    const W = tall ? pw : lw, H = tall ? ph : lh;
+    const x = tall ? (i % 8) * pw : (i % 4) * lw, y = tall ? Math.floor(i / 8) * ph : A / 2 + Math.floor(i / 4) * lh;
+    g.save(); g.beginPath(); g.rect(x, y, W, H); g.clip(); g.translate(x, y);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    draw(g, W, H, tall, Math.min(W, H));
+    g.restore();
+  }
+}
 
 // atlas: tall cells (1:2) in the top half, wide cells (2:1) below
 export function drawAdAtlas(small) {
@@ -218,16 +236,7 @@ export function drawAdAtlas(small) {
   cv.width = A; cv.height = A;
   const g = cv.getContext('2d');
   g.fillStyle = '#000'; g.fillRect(0, 0, A, A);
-  const pw = A / 8, ph = A / 4, lw = A / 4, lh = A / 8;
-  ADS.forEach((draw, i) => {
-    for (const tall of [true, false]) {
-      const W = tall ? pw : lw, H = tall ? ph : lh;
-      const x = tall ? (i % 8) * pw : (i % 4) * lw, y = tall ? Math.floor(i / 8) * ph : A / 2 + Math.floor(i / 4) * lh;
-      g.save(); g.beginPath(); g.rect(x, y, W, H); g.clip(); g.translate(x, y);
-      draw(g, W, H, tall, Math.min(W, H));
-      g.restore();
-    }
-  });
+  for (let i = 0; i < ADS.length; i++) paintAd(cv, i);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
@@ -237,10 +246,10 @@ export function drawAdAtlas(small) {
 }
 
 export async function loadAdFonts() {
-  const sample = '義體雷霆能量天頂銀行感知一切麵牛肉新星飛行直航月台點心明日製造藥房遊戲機中心霓虹夜市雲上之家綠茶冷泡演唱會麻雀館通宵中發白無痛升級分期付款';
+  const sample = 'AUGTHUNDERENERGYZENITHSENSEALLRAMENDIMSUMMADETOMORROWGAMECENTRENEONNIGHTCLOUDHOMEGREENMAHJONG';
   try {
     await Promise.all([
-      document.fonts.load(`900 64px ${HEI}`, sample), document.fonts.load(`700 64px ${SUNG}`, sample),
+      document.fonts.load(`900 64px ${HEI}`, sample),
       document.fonts.load(`800 64px ${OX}`, 'VOLT'), document.fonts.load(`200 64px ${OX}`, 'SYNAPSE'), document.fonts.load(`800 64px ${MONO}`, 'ARCADE'),
     ]);
   } catch { /* fallbacks draw instead */ }

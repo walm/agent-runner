@@ -30,11 +30,18 @@ Vehicle and brand names in model titles belong to their owners. The models are f
   - The environment light is the *Shanghai Bund* HDRI.
 - **[ambientCG](https://ambientcg.com)** (public domain): Facade009 and Facade019B, the distant office towers.
 
+## Speech: OpenRAIL-M
+
+- [Supertonic 3](https://huggingface.co/supertone-oss-archive/supertonic-3) by Supertone: the agents' voice
+  (the preset style F1, "Sarah"). The weights are not in this repository: the agent server downloads them from Hugging Face
+  (one pinned revision) when the AGENT VOICE setting is first turned on, keeps them on disk, and runs them with
+  [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT). The pipeline follows Supertone's demo
+  (MIT sample code).
+
 ## Fonts: SIL Open Font License 1.1
 
-- [Chiron Hei HK](https://github.com/chiron-fonts/chiron-hei-hk) and [Chiron Sung HK](https://github.com/chiron-fonts/chiron-sung-hk): interface, signs, adverts.
-- [Oxanium](https://github.com/sevmeyer/oxanium) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono): interface, adverts.
-- [LXGW WenKai TC](https://github.com/lxgw/LxgwWenkaiTC), [Noto Serif TC](https://fonts.google.com/noto/specimen/Noto+Serif+TC), [Monoton](https://fonts.google.com/specimen/Monoton), [Neonderthaw](https://fonts.google.com/specimen/Neonderthaw) and [Tilt Neon](https://fonts.google.com/specimen/Tilt+Neon): baked into the neon sign atlas.
+- [Oxanium](https://github.com/sevmeyer/oxanium) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono): interface, adverts, signs.
+- [Noto Serif TC](https://fonts.google.com/noto/specimen/Noto+Serif+TC), [Monoton](https://fonts.google.com/specimen/Monoton), [Neonderthaw](https://fonts.google.com/specimen/Neonderthaw) and [Tilt Neon](https://fonts.google.com/specimen/Tilt+Neon): baked into the neon sign atlas.
 
 ## Made for this project
 

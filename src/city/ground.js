@@ -10,9 +10,10 @@ import { U, noiseTex } from '../core/shared.js';
 import { lmUV, streetLight } from './lightmap.js';
 import { hash22, hash12 } from '../tsl/util.js';
 
-export const LAYER_NOREFL = 1;
+// (layers 1 and 2 are taken: a VR headset draws its left and right eye with them)
+export const LAYER_NOREFL = 3;
 // modelled facades: only the main camera draws them (reflections and the car's probe see the photo facades)
-export const LAYER_KIT = 2;
+export const LAYER_KIT = 4;
 
 // expanding ring normals from raindrops, on a world-space grid (after the TSL ripples in threejs-punk, MIT)
 const ripples = Fn(([p, t]) => {

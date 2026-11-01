@@ -1,3 +1,4 @@
+import './core/yield.js';
 import * as THREE from 'three/webgpu';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { U, loadTex, loadArray } from './core/shared.js';
@@ -26,6 +27,7 @@ import { Screens } from './ui/screens.js';
 import { drawCityMap } from './ui/citymap.js';
 import { createTouch, isTouch } from './ui/touch.js';
 import { Sound } from './audio/audio.js';
+import { Voice } from './audio/voice.js';
 import { Lightning } from './atmos/lightning.js';
 import { buildRuns, buildShards, RunVisuals, RunBook } from './game/runs.js';
 import { Game } from './game/game.js';
@@ -40,17 +42,22 @@ import { buildHeightmap } from './city/heightmap.js';
 import { createRain } from './atmos/rain.js';
 import { Traffic } from './life/traffic.js';
 import { SkyTraffic } from './life/skytraffic.js';
+import { AgentLayer } from './agents/agents.js';
+import { VRMode, vrSupported } from './xr/vr.js';
+import { Nav } from './game/nav.js';
+import { NavVisuals } from './game/navvis.js';
 
 const params = new URLSearchParams(location.search);
+const WARM_STALL_MS = 8000; // the boot stops waiting for its shader warm-up once nothing has compiled for this long
 
-const DEFAULTS = { quality: 'auto', rain: 1, volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
+const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nz.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }
 
 const ui = document.getElementById('ui');
 ui.insertAdjacentHTML('beforeend', `<div id="fade"></div><div id="loader"><div class="lw">
-  <div class="lt"><b>NEON ZENITH</b> · 霓虹天頂</div><div class="bar"><i></i></div><div class="st">BOOTING</div></div></div>`);
+  <div class="lt"><b>AGENT RUNNER</b></div><div class="bar"><i></i></div><div class="st">BOOTING</div></div></div>`);
 const loaderBar = ui.querySelector('#loader .bar i'), loaderSt = ui.querySelector('#loader .st');
 function progress(f, text) {
   loaderBar.style.width = `${Math.round(f * 100)}%`;
@@ -88,14 +95,29 @@ async function loadTextures() {
 
 async function boot() {
   const canvas = document.getElementById('gl');
-  const webgpu = !!navigator.gpu && !params.has('webgl');
-  const renderer = new THREE.WebGPURenderer({ canvas, antialias: false, powerPreference: 'high-performance', reversedDepthBuffer: webgpu, forceWebGL: !webgpu });
+  // ?xremu (dev only): an emulated Quest 3 (Meta's IWER), to try VR without a headset
+  if (import.meta.env.DEV && params.has('xremu')) {
+    const { XRDevice, metaQuest3 } = await import('iwer');
+    const device = new XRDevice(metaQuest3);
+    device.installRuntime({ forceInstall: true });
+    window.__xrdevice = device;
+  }
+  // WebXR over WebGPU needs XRGPUBinding, which no headset browser ships yet: with a headset there, use WebGL.
+  // A headset draws without the post chain (and its FXAA), so the canvas gets MSAA instead.
+  const webxr = !params.has('flat') && (await vrSupported());
+  const webgpu = !!navigator.gpu && !params.has('webgl') && !(webxr && typeof XRGPUBinding === 'undefined');
+  // multiview draws both eyes in one pass (OVR_multiview2, on the Quest); ?nomv turns it off
+  const renderer = new THREE.WebGPURenderer({ canvas, antialias: webxr, multiview: webxr && !params.has('nomv'), powerPreference: 'high-performance', reversedDepthBuffer: webgpu, forceWebGL: !webgpu });
   const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
   renderer.setPixelRatio(dpr);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   await renderer.init();
-  await progress(0.08, 'LOADING TEXTURES · 載入材質');
+  // which graphics API this page got, for anyone looking in before boot is done (the desktop app's diagnostics)
+  window.__nzBoot = { backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl', webxr };
+  // the emulator's XR framebuffer is null (the canvas itself), which three's WebGL state cannot use as a WeakMap key
+  if (import.meta.env.DEV && window.__xrdevice && renderer.backend.state) renderer.backend.state.currentDrawbuffers = new Map();
+  await progress(0.08, 'LOADING TEXTURES');
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.25, 12000);
@@ -107,7 +129,7 @@ async function boot() {
   scene.environmentIntensity = 0.1;
   scene.environmentRotation.y = 1.2;
 
-  await progress(0.3, 'RAISING THE CITY · 生成城市');
+  await progress(0.3, 'RAISING THE CITY');
   const lightmap = buildLightmap(city);
   // inside Temple Street the light at street level is Blender's; the consumers scale this map by ~2.4 against albedo
   lightmap.district = { ground: districtData.ground, uv: groundUV, inside: insideRegion, scale: EXPO / 2.4 };
@@ -130,7 +152,8 @@ async function boot() {
   const signs = createSigns(city, tex);
   scene.add(signs.group);
   await loadAdFonts();
-  const ads = createAdScreens(city, drawAdAtlas(isTouch()));
+  const adAtlas = drawAdAtlas(isTouch());
+  const ads = createAdScreens(city, adAtlas);
   scene.add(ads.group);
   scene.add(createAviationLights(city).group);
   const props = createProps(city, tex, lightmap);
@@ -145,7 +168,7 @@ async function boot() {
   const sky2 = new SkyTraffic(city);
   scene.add(sky2.group);
 
-  await progress(0.55, 'TRAFFIC AND WEATHER · 交通與天氣');
+  await progress(0.55, 'TRAFFIC AND WEATHER');
   const hemi = new THREE.HemisphereLight(0x3a3060, 0x120a14, 0.35);
   scene.add(hemi);
   const moon = new THREE.DirectionalLight(0x8090c0, 0.25);
@@ -186,10 +209,25 @@ async function boot() {
     onRun: (i) => game.startRun(i),
     onReset: () => game.reset(),
     onEndRun: () => game.endRun(),
+    onQuit: () => game.quitToTitle(),
     onWaypoint: (x, z) => game.setWaypoint(x, z),
     onUi: () => { sound.start(); sound.ui(); },
     onSetting: (k) => applySetting(k),
   });
+  // built before the warm-up so its beacons compile with everything else
+  const agents = new AgentLayer({ city, ui, screens, hud, adAtlas });
+  // the agents read out loud (Settings > VOICE): its state shows in the settings row and as toasts
+  const voice = new Voice(sound, (state, info) => {
+    screens.voiceState = state === 'loading' ? `DOWNLOADING ${info.pct}%` : state === 'ready' ? 'SARAH · EN · 1.25×' : state === 'error' ? 'FAILED' : '';
+    screens.updateVoiceState?.();
+    if (state === 'ready') hud.toast('VOICE READY · SARAH', 'cyan');
+    else if (state === 'error') { hud.toast('VOICE FAILED TO LOAD', 'mag'); console.warn('voice:', info.message); settings.voice = 0; screens.updateVoiceState?.(true); }
+  });
+  agents.onMessage = (a, urgent) => voice.say(a.id, a.name, a.last, urgent);
+  scene.add(agents.group);
+  const nav = new Nav(city);
+  const navVis = new NavVisuals(hud.el);
+  scene.add(navVis.group);
   const touchUi = createTouch(ui, input);
   const fade = ui.querySelector('#fade');
   const attract = new Attract(camera, kite, city, fade);
@@ -204,12 +242,47 @@ async function boot() {
       rain.setQuality(q === 'low' ? 0.45 : q === 'medium' ? 0.75 : 1);
     }
     if (k === 'rain' || k === 'all') { U.rain.value = settings.rain; rain.group.visible = settings.rain > 0; }
+    if (k === 'traffic' || k === 'all') {
+      traffic.density = settings.traffic;
+      traffic.group.visible = settings.traffic > 0;
+      sky2.group.visible = settings.traffic > 0 && !vr.tier;
+    }
     if (k === 'volume' || k === 'music' || k === 'all') sound.applySettings();
+    if (k === 'voice' || k === 'all') voice.setEnabled(!!settings.voice);
     if (k === 'fov' || k === 'all') rig.fovBase = settings.fov;
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
     if (k === 'shake' || k === 'all') rig.shakeScale = settings.shake;
   }
-  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch });
+  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
+  agents.bind(game);
+  // a lighter VR city (the tiers are in xr/vr.js): modelled facades and shopfronts only close by (the photo facades
+  // take over sooner), Temple Street's props at lower detail, no sky traffic, thinner rain; null puts it all back
+  const full = { kitNear: U.kitNear.value, lod0: facadeKit.lod0, shopNear: U.shopNear.value, props: 1, carLod: traffic.lodNear };
+  function vrProfile(t) {
+    const p = t || full;
+    U.kitNear.value = p.kitNear;
+    facadeKit.lod0 = p.lod0;
+    U.shopNear.value = p.shopNear;
+    facadeKit.update(U.kitCenter.value.clone(), true);
+    shopKit.list(U.kitCenter.value);
+    district.setDetail(p.props);
+    traffic.lodNear = p.carLod;
+    for (const g of [signs.group, ads.group]) {
+      g.userData.maxDist = t ? t.signs / t.cull : Infinity; // cullChunks scales it by t.cull again
+      if (!t) for (const m of g.children) m.visible = true;
+    }
+    if (t) {
+      sky2.group.visible = false;
+      rain.setQuality(t.rain);
+    } else {
+      camera.far = 12000;
+      camera.updateProjectionMatrix();
+      applySetting('quality');
+      applySetting('traffic');
+    }
+  }
+  const vr = new VRMode({ renderer, scene, camera, ui, kite, rig, input, hud, ground, post, settings, profile: vrProfile });
+  vr.bind(game, agents);
   applySetting('all');
 
   const fly = new FlyCam(camera, canvas);
@@ -236,7 +309,7 @@ async function boot() {
       if (o.isMesh) o.frustumCulled = false;
       o.visible = true;
     });
-    await progress(0.75, 'COMPILING SHADERS · 編譯著色器');
+    await progress(0.75, 'COMPILING SHADERS');
     // compileAsync builds for the current render target, and the scene is never drawn straight to the canvas: it goes
     // into the post pass, the ground mirror and the car's cube probe. Compiled for the canvas, every one of those
     // variants was built synchronously in the first frames instead (a 0.5–3 s freeze on the title screen).
@@ -245,16 +318,32 @@ async function boot() {
     // Measured with renderer._renderContexts; if the post chain changes, so does this number.
     const prevTarget = renderer.getRenderTarget();
     const contexts = renderer._renderContexts, getContext = contexts.get;
-    const jobs = [];
+    const jobs = [], done = [0, 0, 0], total = [1, 1, 1];
+    let moved = performance.now();
     for (const [target, cam, depth] of [[post.scenePass.renderTarget, camera, 2], [ground.reflRT, ground.mirrorCam, 0], [probe.rt, probe.cam.children[0], 0]]) {
       renderer.setRenderTarget(target);
       contexts.get = (rt, mrt) => getContext.call(contexts, rt, mrt, depth);
-      jobs.push(renderer.compileAsync(scene, cam));
+      const i = jobs.length;
+      jobs.push(renderer.compileAsync(scene, cam, null, (e) => {
+        done[i] = e.loaded; total[i] = e.total; moved = performance.now();
+        const f = (done[0] + done[1] + done[2]) / (total[0] + total[1] + total[2]);
+        loaderBar.style.width = `${Math.round((0.75 + 0.2 * f) * 100)}%`;
+        loaderSt.textContent = `COMPILING SHADERS ${Math.round(f * 100)}%`;
+      }));
       contexts.get = getContext;
     }
     renderer.setRenderTarget(prevTarget);
-    await Promise.all(jobs);
-    await progress(0.95, 'IGNITION · 點火');
+    // Chrome takes ~3.3 s, WebKit ~7–10 s, and a minute on its first run, when Metal compiles every shader cold. As
+    // long as pipelines keep finishing the wait goes on: cut short, the rest compiled in one frozen first frame. A
+    // safety net all the same: should nothing finish for WARM_STALL_MS, the boot goes on without the rest.
+    const t0 = performance.now();
+    const settled = await new Promise((resolve) => {
+      const watch = setInterval(() => { if (performance.now() - moved > WARM_STALL_MS) { clearInterval(watch); resolve(false); } }, 500);
+      Promise.all(jobs).then(() => { clearInterval(watch); resolve(true); });
+    });
+    window.__nzBoot.warmMs = Math.round(performance.now() - t0);
+    if (!settled) console.warn(`warm-up: nothing compiled for ${WARM_STALL_MS / 1000} s; going on without the rest`);
+    await progress(0.95, 'IGNITION');
     ground.updateReflection(renderer, scene, camera, true);
     post.render();
     for (const [o, v, f] of touched) { o.visible = v; o.frustumCulled = f; }
@@ -271,29 +360,40 @@ async function boot() {
   let prevCam = camera.position.clone();
   const t0 = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000);
-    gov.tick(now - last);
+    // the frame that ends a headset session can come without a time, and the XR frame clock need not be the page's
+    if (!Number.isFinite(now)) now = performance.now();
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+    // in a headset the camera sits in the car's seat: everything that follows the eye follows vr.head instead
+    const xr = vr.presenting;
+    if (!xr) gov.tick(now - last);
     last = now;
     // the traffic moves to where this frame draws it before the car is moved and pushed out of it, or every
     // collision would be against where the traffic was a frame ago
     U.time.value = (now - t0) / 1000;
-    traffic.update(dt, camera.position, U.time.value, kite);
+    traffic.update(dt, (xr ? vr.head : camera).position, U.time.value, kite);
+    vr.poll(dt);
     if (fly.enabled) fly.update(dt);
     else game.update(dt);
-    lightning.update(dt, camera.position);
+    const view = vr.update(dt, now) || camera;
+    agents.update(view, kite);
+    navVis.update(nav, kite, view, game.state === 'play' && !fly.enabled, game.waypointAgent ? agents.entries.get(game.waypointAgent)?.agent.name ?? 'WAYPOINT' : 'WAYPOINT', xr);
+    lightning.update(dt, view.position);
     U.carPos.value.copy(kite.pos);
     U.carFwd.value.copy(kite.fwd);
-    U.camPos.value.copy(camera.position);
-    U.camVel.value.copy(camera.position).sub(prevCam).divideScalar(Math.max(dt, 1e-3));
-    prevCam.copy(camera.position);
-    sky.update(camera);
-    if (facadeKit.update(camera.position)) shopKit.list(U.kitCenter.value);
-    district.update(camera);
-    cullChunks(scene, camera.position);
-    clouds.update(camera);
-    probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], 2);
-    ground.updateReflection(renderer, scene, camera);
-    post.render();
+    U.camPos.value.copy(view.position);
+    U.camVel.value.copy(view.position).sub(prevCam).divideScalar(Math.max(dt, 1e-3));
+    prevCam.copy(view.position);
+    sky.update(view);
+    if (facadeKit.update(view.position)) shopKit.list(U.kitCenter.value);
+    district.update(view);
+    cullChunks(scene, view.position, xr && vr.tier ? vr.tier.cull : 1);
+    clouds.update(view);
+    probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], xr ? vr.probeFaces() : 2);
+    if (xr) vr.render();
+    else {
+      ground.updateReflection(renderer, scene, camera);
+      post.render();
+    }
   }
   probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], 6);
   renderer.setAnimationLoop(frame);
@@ -307,9 +407,10 @@ async function boot() {
   else if (params.has('play')) game.startFree();
   else game.title();
   if (params.has('bot')) game.bot = new Bot();
+  if (params.get('agent')) { if (game.state === 'title') game.startFree(); agents.warpWhenSeen(params.get('agent')); }
   if (touch) game.touchUi = touchUi;
 
-  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
+  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, nav, vr, voice, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
 }
 
 boot().catch((e) => {

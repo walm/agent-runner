@@ -78,10 +78,11 @@ export function chunkedInstances({ items, geometry, material, chunk = 300, attrs
   return group;
 }
 
-// Small props are invisible beyond a few hundred metres; skip their chunks entirely.
-export function cullChunks(root, camPos) {
+// Small props are invisible beyond a few hundred metres; skip their chunks entirely. scale: the light VR city pulls
+// every distance in.
+export function cullChunks(root, camPos, scale = 1) {
   root.traverse((g) => {
-    const d = g.userData.maxDist;
+    const d = g.userData.maxDist * scale;
     if (!d || d === Infinity) return;
     for (const m of g.children) {
       const bs = m.geometry.boundingSphere;

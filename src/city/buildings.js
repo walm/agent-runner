@@ -23,8 +23,7 @@ const ACCENT = ['#2de2ff', '#ff3df2', '#ffb03a', '#7a5cff', '#3dff8b', '#ff2a3c'
 const LAYER = Object.fromEntries(FAC.layers.map((l, i) => [l.name, i]));
 
 export const CHUNK = 400;
-// facade kit: buildings this close to U.kitCenter wear modelled facades; their upper walls step back to make room
-export const KIT_NEAR = 180;
+// facade kit: buildings within U.kitNear of U.kitCenter wear modelled facades; their upper walls step back to make room
 export const KIT_INSET = 0.9;
 
 // null: the procedural curtain wall (buildings differ in grid, glass and spandrel; sharp at any distance)
@@ -136,7 +135,7 @@ function buildingPosition() {
   const c = U.kitCenter;
   const dy = max(float(0), max(iPR.y.sub(c.y), c.y.sub(iPR.y.add(h))));
   const d = length(vec3(iPR.x.sub(c.x), dy, iPR.z.sub(c.z)));
-  const near = step(0, fac.w).mul(step(d, KIT_NEAR));
+  const near = step(0, fac.w).mul(step(d, U.kitNear));
   return p.sub(vec3(aw.x, 0, aw.y).mul(stepped.mul(near).mul(KIT_INSET)));
 }
 

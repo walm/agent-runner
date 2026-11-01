@@ -1,4 +1,4 @@
-// Street traffic. Taxis, minibuses, buses, vans and private cars keep left, queue behind each other and stop for
+// Street traffic. Taxis, minibuses, vans and private cars keep left, queue behind each other and stop for
 // the signals. A fixed pool is spread over the lanes around the camera and recycled as it moves; from
 // altitude the pool widens so the avenues read as rivers of headlights and tail-lights.
 import * as THREE from 'three/webgpu';
@@ -54,10 +54,13 @@ function buildLanes(city) {
 
 // The Hong Kong street mix. Every type is an authored model baked to one atlas (assets-src/blender_bake.py);
 // sizes come from the bake: half-width, roof height, length. Forward is -Z like the KITE.
+// (The KMB double-decker, bus.glb, is out of the mix.)
 const MIX = [
-  ['taxi', 0.3], ['minibus', 0.1], ['van', 0.1], ['bus', 0.05],
-  ['sedan', 0.1], ['minivan', 0.1], ['suv', 0.07], ['hatch', 0.06], ['wagon', 0.06], ['coupe', 0.06],
+  ['taxi', 0.3], ['minibus', 0.1], ['van', 0.1],
+  ['sedan', 0.15], ['minivan', 0.1], ['suv', 0.07], ['hatch', 0.06], ['wagon', 0.06], ['coupe', 0.06],
 ];
+// models authored nose to +Z: turned round on load, or they would drive tail first
+const BACKWARDS = new Set(['minivan', 'hatch', 'coupe']);
 export const TYPES = MIX.map(([name, weight]) => {
   const v = VEH[name];
   return { name, weight, w: v.size[0] / 2, roof: v.size[1], len: v.size[2], emax: v.emax, paintLum: v.paintLum };
@@ -166,6 +169,8 @@ export class Traffic {
       this.cars.push({ active: false, type: ti, lane: null, s: 0, v: 0, vmax: 0, brake: 0, variant: this.rng(), seed: this.rng(), x: 0, z: 0, yaw: 0 });
     }
     this.time = 0;
+    this.density = 1; // the TRAFFIC setting: a share of the believable density below
+    this.lodNear = LOD_NEAR;
   }
 
   // the models arrive after construction; until then nothing is drawn but the simulation runs
@@ -180,6 +185,7 @@ export class Traffic {
         let src = null;
         gltf.scene.traverse((o) => { if (o.isMesh && !src && (o.name === k || o.parent?.name === k)) src = o; });
         const base = toFloatGeometry(src.geometry).applyMatrix4(src.matrixWorld);
+        if (BACKWARDS.has(type.name)) base.rotateY(Math.PI);
         const geo = new THREE.InstancedBufferGeometry();
         geo.index = base.index;
         for (const [name, a] of Object.entries(base.attributes)) geo.setAttribute(name, a);
@@ -246,7 +252,7 @@ export class Traffic {
     this.lastCam = (this.lastCam || new THREE.Vector3()).copy(camPos);
     this.avoid = kite && kite.pos.y - kite.groundY < 3 ? kite.pos : null;
     // a believable density: about one car per 40 m of lane at street level, more when the view is wide
-    const maxActive = Math.min(this.cars.length, Math.round(180 + (R - 260) * 0.58));
+    const maxActive = Math.min(this.cars.length, Math.round((180 + (R - 260) * 0.58) * this.density));
     let active = 0;
     const byLane = new Map();
     for (const car of this.cars) {
@@ -335,7 +341,7 @@ export class Traffic {
       const yaw = ln.axis === 'z' ? (ln.dir > 0 ? Math.PI : 0) : ln.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
       car.x = x; car.z = z; car.yaw = yaw;
       const dx = x - camPos.x, dy = camPos.y, dz = z - camPos.z;
-      const lod = dx * dx + dy * dy + dz * dz < LOD_NEAR * LOD_NEAR ? 0 : 1;
+      const lod = dx * dx + dy * dy + dz * dz < this.lodNear * this.lodNear ? 0 : 1;
       const m = this.meshes[car.type][lod];
       const i = counts[car.type][lod]++;
       const bob = Math.sin(simTime * 2.1 + car.seed * 40) * 0.012;

@@ -9,25 +9,27 @@ const bearingOf = (dx, dz) => ((Math.atan2(dx, -dz) * DEG) + 360) % 360;
 const ZERO = { throttle: 0, steer: 0, lift: 0, boost: false };
 
 const RADIO = {
-  liftoff: ['KOWLOON CONTROL · 九龍航管', 'Kite-nine, you are clear to the lanes. Keep left, keep lit.', '九號，航道已開放。靠左，亮燈。'],
-  cloud: ['KOWLOON CONTROL · 九龍航管', 'Cloud base five-two-zero. You are on instruments.', '雲底五二零米，請依儀表飛行。'],
-  above: ['NEON FM 88.1 · 霓虹電台', 'Above the weather tonight? Lucky you. Here is something for the quiet up there.', '在雲上面？幸運兒。'],
-  pad: ['ZENITH PAD · 天頂停機坪', 'Touchdown, one-four-one-eight. Nice flying, Kite-nine.', '著陸確認，一四一八米。'],
-  fast: ['KOWLOON CONTROL · 九龍航管', 'Kite-nine, we read you over four hundred. Ease it off near the lanes.', '九號，時速超過四百，請減速。'],
-  start: ['NEON FM 88.1 · 霓虹電台', 'Rain all night over Kowloon, heavier after midnight. Stay dry, stay out of the lanes if you are not licensed.', '九龍今晚全夜有雨。'],
-  shardsAll: ['NEON FM 88.1 · 霓虹電台', 'Somebody just lit up every shard in the city. We see you.', '全城晶片已集齊。'],
+  liftoff: ['KOWLOON CONTROL', 'Kite-nine, you are clear to the lanes. Keep left, keep lit.'],
+  cloud: ['KOWLOON CONTROL', 'Cloud base five-two-zero. You are on instruments.'],
+  above: ['NEON FM 88.1', 'Above the weather tonight? Lucky you. Here is something for the quiet up there.'],
+  pad: ['ZENITH PAD', 'Touchdown, one-four-one-eight. Nice flying, Kite-nine.'],
+  fast: ['KOWLOON CONTROL', 'Kite-nine, we read you over four hundred. Ease it off near the lanes.'],
+  start: ['NEON FM 88.1', 'Rain all night over Kowloon, heavier after midnight. Stay dry, stay out of the lanes if you are not licensed.'],
+  shardsAll: ['NEON FM 88.1', 'Somebody just lit up every shard in the city. We see you.'],
   district: {
-    market: [['Night market is jammed, watch the minibuses on Temple Street.', '廟街好塞，小心小巴。'], ['Dai pai dong on the corner still open. Of course it is.', '街角大牌檔仲開緊。']],
-    center: [['Glass towers, glass rain. Mind the downdrafts between them.', '大廈之間有下沉氣流。'], ['Admiralty signal boards report all lanes green.', '金鐘航道全線暢通。']],
-    estate: [['Estates on the ridge. Forty floors of windows, every one still lit.', '屋邨四十層，層層有燈。']],
-    mixed: [['Old Kowloon. Low roofs, a lot of signs, a lot of wires.', '舊九龍，招牌多，電線多。']],
-    docks: [['Container cranes on the piers. Lights on, nobody home.', '碼頭吊機，燈火通明。']],
+    market: [['Night market is jammed, watch the minibuses on Temple Street.'], ['Dai pai dong on the corner still open. Of course it is.']],
+    center: [['Glass towers, glass rain. Mind the downdrafts between them.'], ['Admiralty signal boards report all lanes green.']],
+    estate: [['Estates on the ridge. Forty floors of windows, every one still lit.']],
+    mixed: [['Old Kowloon. Low roofs, a lot of signs, a lot of wires.']],
+    docks: [['Container cranes on the piers. Lights on, nobody home.']],
   },
 };
 
 export class Game {
   constructor(o) {
-    Object.assign(this, o); // city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, fadeEl, applySetting
+    Object.assign(this, o); // city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, agents, nav, touch
+    this.waypointAgent = null; // the agent the waypoint leads to, if any
+    this.nearAgent = null;
     this.state = 'loading';
     this.run = null;
     this.waypoint = null;
@@ -48,6 +50,7 @@ export class Game {
   // ---- flow ----
   title() {
     this.state = 'title';
+    this.screens.atTitle = true;
     this.hud.show(false);
     this.screens.showTitle(true);
     // the title is a film of the city; the run markers are for the game
@@ -62,6 +65,7 @@ export class Game {
     this.screens.hideTitle();
     this.visuals.showBeacons(true);
     this.state = 'play';
+    this.screens.atTitle = false;
     this.rig.snap = true;
     this.hud.show(!!this.settings.hud);
     this.hud.setHints(this.touch);
@@ -143,6 +147,15 @@ export class Game {
     this.screens.closePause();
   }
 
+  // back to the title from the menu: the run ends, and the car parks where the title film expects it
+  quitToTitle() {
+    if (this.run) this.endRun();
+    this.screens.closePause();
+    this.kite.place(...this.attract.home);
+    this.sound.ui();
+    this.title();
+  }
+
   // ---- per frame ----
   update(dt) {
     this.clock += dt;
@@ -152,6 +165,9 @@ export class Game {
       this.attract.update(dt);
       for (const a of actions) if (a === 'confirm') this.startFree();
       k.syncModel(dt);
+      // the car is parked; the rain and the city follow the film's camera (only once a game has started the sound)
+      const y = this.camera.position.y;
+      this.sound.update(dt, { speed: 0, throttle: 0, boost: 0, air: false, alt: y, vy: 0, inCloud: U.inCloud.value, covered: false, parked: true });
       return;
     }
     if (this.state === 'loading') return;
@@ -192,6 +208,7 @@ export class Game {
     k.events.length = 0;
 
     if (this.state === 'run') this.updateRun(dt);
+    this.nav?.update(this.waypoint && !this.run ? this.waypoint : null, k.pos, k.fwd.x, k.fwd.z, performance.now(), dt);
     this.updateShards();
     this.updateWorldFlags();
     this.updateHud(dt, c);
@@ -203,16 +220,20 @@ export class Game {
 
   action(a) {
     const o = this.screens.open;
-    if (a === 'pause') { if (o === 'map') this.screens.closeMap(); else if (o === 'results') this.screens.closeResults(); else this.pauseToggle(); }
+    if (a === 'pause' && (o === 'agents' || o === 'terminal')) this.agents.close();
+    else if (a === 'quit') { if (o === 'pause') this.quitToTitle(); }
+    else if (a === 'pause') { if (o === 'map') this.screens.closeMap(); else if (o === 'results') this.screens.closeResults(); else this.pauseToggle(); }
     else if (a === 'map') this.mapToggle();
     else if (a === 'help') { if (!o) this.pauseToggle('controls'); }
     else if (o === 'results') { if (a === 'confirm') this.screens.closeResults(); else if (a === 'reset') { this.screens.closeResults(); this.startRun(this.screens.lastRun); } }
+    else if (a === 'agents') { if (!o) this.agents?.toggleList(); }
     else if (o) return;
     else if (a === 'camera') this.rig.cycle();
     else if (a === 'reset') this.reset();
     else if (a === 'horn') this.sound.horn();
-    else if (a === 'radio') { const on = this.sound.toggleRadio(); this.hud.toast(on ? '電台開' : '電台關', on ? 'RADIO ON · NEON FM 88.1' : 'RADIO OFF'); }
+    else if (a === 'radio') { const on = this.sound.toggleRadio(); this.hud.toast(on ? 'RADIO ON · NEON FM 88.1' : 'RADIO OFF'); }
     else if (a === 'confirm' && this.nearRun !== null && this.nearRun !== undefined && !this.run) this.startRun(this.nearRun);
+    else if (a === 'confirm' && this.nearAgent && !this.run) this.agents.openTerminal(this.nearAgent.agent.id);
   }
 
   updateRun(dt) {
@@ -254,9 +275,9 @@ export class Game {
         this.sound.shard();
         const n = this.collected.size, N = this.shards.length;
         this.hud.setShards(n, N);
-        this.hud.toast('晶片', `SHARD ${n} / ${N}`, 'mag');
+        this.hud.toast(`SHARD ${n} / ${N}`, 'mag');
         try { localStorage.setItem('nz.shards', JSON.stringify([...this.collected])); } catch {}
-        if (n === N) { this.hud.toast('全城點亮', 'THE CITY IS LIT', 'big mag'); this.radio(RADIO.shardsAll, true); }
+        if (n === N) { this.hud.toast('THE CITY IS LIT', 'big mag'); this.radio(RADIO.shardsAll, true); }
       }
     }
   }
@@ -270,7 +291,7 @@ export class Game {
   radio(line, force) {
     if (!force && this.clock - this.lastRadio < 30) return;
     this.lastRadio = this.clock;
-    this.hud.radio(line[0], line[1], line[2]);
+    this.hud.radio(line[0], line[1]);
   }
 
   updateWorldFlags() {
@@ -286,8 +307,8 @@ export class Game {
       this.seen.add(d.en);
       const pool = RADIO.district[d.type];
       if (pool && this.seen.size > 1 && Math.random() < 0.6) {
-        const [en, zh] = pool[Math.floor(Math.random() * pool.length)];
-        this.radio(['NEON FM 88.1 · 霓虹電台', en, zh]);
+        const [en] = pool[Math.floor(Math.random() * pool.length)];
+        this.radio(['NEON FM 88.1', en]);
       }
     }
     // run beacons: drive into one to be offered the run
@@ -297,7 +318,11 @@ export class Game {
         if (Math.hypot(k.pos.x - r.start.x, k.pos.z - r.start.z) < 12 && Math.abs(k.pos.y - r.start.y) < 10) this.nearRun = i;
       });
     }
-    this.hud.prompt(this.nearRun !== null ? `<span class="key">${this.touch ? 'TAP' : 'ENTER'}</span>開始<span class="zh">${this.runs[this.nearRun].zh}</span>START ${this.runs[this.nearRun].en}` : null);
+    // parked at an agent's door, or in its beam: offer its terminal (a run beacon on the same spot wins)
+    this.nearAgent = this.agents && !this.run && this.state === 'play' && this.nearRun === null ? this.agents.nearest(k.pos) : null;
+    if (this.agents) this.agents.near = this.nearAgent;
+    this.hud.prompt(this.nearRun !== null ? `<span class="key">${this.touch ? 'TAP' : 'ENTER'}</span>START ${this.runs[this.nearRun].en}`
+      : this.nearAgent ? this.agents.prompt(this.touch) : null);
   }
 
   updateHud(dt, c) {
@@ -320,10 +345,15 @@ export class Game {
         if (Math.hypot(r.start.x - k.pos.x, r.start.z - k.pos.z) < 900) markers.push({ bearing: bearingOf(r.start.x - k.pos.x, r.start.z - k.pos.z), color: '#ffb547' });
       });
     }
+    if (this.agents && !this.run) {
+      const am = this.agents.markers(k.pos, bearingOf);
+      markers.push(...am.hud);
+      mapMarkers.push(...am.map);
+    }
     if (this.waypoint) {
       mapMarkers.push({ x: this.waypoint.x, z: this.waypoint.z, color: '#3be8ff', shape: 'ring', pin: true });
       markers.push({ bearing: bearingOf(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z), color: '#3be8ff' });
-      if (Math.hypot(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z) < 25) { this.waypoint = null; this.hud.toast('', 'WAYPOINT REACHED · 已到達', 'cyan'); }
+      if (Math.hypot(this.waypoint.x - k.pos.x, this.waypoint.z - k.pos.z) < 25) { this.waypoint = null; this.hud.toast('WAYPOINT REACHED', 'cyan'); }
     }
     this.shards.forEach((s, i) => {
       if (!this.collected.has(i) && Math.hypot(s.x - k.pos.x, s.z - k.pos.z) < 160) mapMarkers.push({ x: s.x, z: s.z, color: '#ff3df2', shape: 'gem' });
@@ -336,7 +366,7 @@ export class Game {
     this.hud.update({
       speed: k.speed, boost: k.boosting ? 1 : Math.min(1, k.boostHeat || 0), mode: k.mode, lane, district: this.district,
       bearing, heading: -bearing / DEG, x: k.pos.x, z: k.pos.z, alt: k.pos.y, groundY: groundAt(this.city, k.pos.x, k.pos.z, k.pos.y), vy: k.vel.y,
-      markers, mapMarkers,
+      markers, mapMarkers, route: this.nav?.line(),
     }, dt);
   }
 
@@ -344,9 +374,10 @@ export class Game {
     const markers = [];
     this.runs.forEach((r, i) => markers.push({ x: r.start.x, z: r.start.z, color: '#ffb547', shape: 'dot', label: `${String(i + 1).padStart(2, '0')} ${r.en}` }));
     this.shards.forEach((s, i) => markers.push({ x: s.x, z: s.z, color: '#ff3df2', shape: 'gem', dim: this.collected.has(i) }));
+    if (this.agents) markers.push(...this.agents.mapMarkers());
     if (this.waypoint) markers.push({ x: this.waypoint.x, z: this.waypoint.z, color: '#3be8ff', shape: 'ring' });
     if (this.run) this.run.def.gates.slice(this.run.gate).forEach((g) => markers.push({ x: g.x, z: g.z, color: '#ff3df2', shape: 'ring' }));
     this.camera.getWorldDirection(this.dir);
-    return { markers, player: { x: this.kite.pos.x, z: this.kite.pos.z, bearing: Math.atan2(this.dir.x, -this.dir.z) } };
+    return { markers, route: this.nav?.line(), player: { x: this.kite.pos.x, z: this.kite.pos.z, bearing: Math.atan2(this.dir.x, -this.dir.z) } };
   }
 }

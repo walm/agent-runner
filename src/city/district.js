@@ -154,6 +154,9 @@ function material(src, s, light, panes = false) {
   return m;
 }
 
+const SIGN_PARTS = /^(letters_|neon_|panel_|signface_|signbox_)/; // in the self-lit signs
+const GATE_ZH = /^neon_\(1\.0, 0\.05, 0\.12\)/; // the gate's red tubes, in the lightmapped street
+
 export function createDistrict(data) {
   const group = new THREE.Group();
   group.name = 'district';
@@ -167,18 +170,24 @@ export function createDistrict(data) {
   const spill = texture(data.ground, groundUV(positionWorld.xz)).rgb.mul(EXPO * 0.6)
     .mul(smoothstep(-0.6, 0.4, normalWorld.y.negate()).mul(0.6).add(0.4));
   const cache = new Map();
+  const hidden = [];
   root.traverse((o) => {
     if (!o.isMesh) return;
+    // the street's own signs were lettered in Chinese in Blender: they are dropped here, and the city's generated
+    // (English) signs hang on these buildings instead (layout.js keeps them in the corridor). Of the gate, only the
+    // red Chinese name goes; its TEMPLE STREET stays.
+    if ((o.geometry.attributes.uv1 ? GATE_ZH : SIGN_PARTS).test(o.material.name)) { hidden.push(o); return; }
     const baked = !!o.geometry.attributes.uv1;
     const key = o.material.uuid + baked;
     if (!cache.has(key)) cache.set(key, material(o.material, surface(o.material, data.ph), baked ? lmLight : spill, !!o.geometry.attributes.uv3));
     o.material = cache.get(key);
     o.frustumCulled = true;
   });
+  for (const o of hidden) o.removeFromParent();
 
   const props = createProps(data);
   group.add(props.group);
-  return { group, update: props.update, warm: props.warm, materials: cache.size };
+  return { group, update: props.update, warm: props.warm, setDetail: props.setDetail, materials: cache.size };
 }
 
 // ---------------------------------------------------------------- instanced props, one list per level of detail
@@ -239,6 +248,9 @@ function createProps(data) {
   }
 
   let last = new THREE.Vector3(1e9, 0, 0), frame = 0;
+  // the light VR city pulls every level of detail, and the end of the props, in toward the camera
+  let detail = 1;
+  const setDetail = (f) => { detail = f; last.set(1e9, 0, 0); };
   // the boot warm-up draws one of every level, so no level's buffers or pipeline wait for its first close pass
   const warm = () => {
     for (const s of sets) for (const L of s.levels) {
@@ -260,8 +272,8 @@ function createProps(data) {
       for (const it of s.items) {
         const dx = it[0] - cx, dy = it[1] - cy, dz = it[2] - cz;
         const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        if (d > 900) continue;
-        const li = Math.min(s.levels.length - 1, d < s.d0 ? 0 : d < s.d1 ? 1 : 2);
+        if (d > 900 * detail) continue;
+        const li = Math.min(s.levels.length - 1, d < s.d0 * detail ? 0 : d < s.d1 * detail ? 1 : 2);
         const L = s.levels[li], k = counts[li]++;
         _m.compose(_v.set(it[0], it[1], it[2]), _q.setFromAxisAngle(_up, it[3]), _s);
         _m.toArray(L.matrix.array, k * 16);
@@ -278,5 +290,5 @@ function createProps(data) {
       });
     }
   };
-  return { group, update, warm };
+  return { group, update, warm, setDetail };
 }

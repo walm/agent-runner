@@ -9,13 +9,12 @@ import {
   attribute, positionGeometry, normalGeometry, positionWorld, vec2, vec3, float, mix, step, texture, fract, cos, sin,
   normalize, cross, dot, max, inverseSqrt, select, dFdx, dFdy, transformNormalToView,
 } from 'three/tsl';
-import { loadArray } from '../core/shared.js';
+import { U, loadArray } from '../core/shared.js';
 import { streetLight } from './lightmap.js';
 import { makeBatch, MOVE } from './facadekit.js';
 import { toFloatGeometry } from '../vehicle/model.js';
 import KIT from './shopkit.json';
 
-export const SHOP_NEAR = 110;
 const N = KIT.modules.length;
 const START = KIT.modules.map((_, k) => KIT.modules.slice(0, k).reduce((a, m) => a + m.w, 0));
 export const STRIP = START[N - 1] + KIT.modules[N - 1].w;
@@ -87,7 +86,7 @@ export function createShopKit(city, kit, lightmap) {
     for (const S of shops) {
       const { s } = S;
       // half a metre past the strip's own threshold, so between the two something always stands
-      if (Math.hypot(s.x - c.x, s.y - c.y, s.z - c.z) >= SHOP_NEAR + 0.5) continue;
+      if (Math.hypot(s.x - c.x, s.y - c.y, s.z - c.z) >= U.shopNear.value + 0.5) continue;
       if ((c.x - S.wx) * S.nx + (c.z - S.wz) * S.nz < -MOVE) continue;
       for (let i = 0; i < S.recs.length; i += 13) batches[S.recs[i]].push(S.recs, i + 1);
     }

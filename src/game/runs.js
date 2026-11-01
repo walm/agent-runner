@@ -124,10 +124,10 @@ function pathLength(pts, start) {
 
 export function buildRuns(city) {
   const defs = [
-    { zh: '街市衝刺', en: 'MARKET DASH', desc: 'Street level through the Temple night market. Keep it on the tarmac, keep left.', route: marketRoute(city), speeds: [26, 20, 15], ground: true },
-    { zh: '航道', en: 'SKY LANE', desc: 'North on the 168 m lane, across at 236 m, south past the Zenith. Mind the traffic.', route: laneRoute(city), speeds: [58, 46, 36] },
-    { zh: '登頂', en: 'ASCENT', desc: 'Spiral up the Zenith, through the cloud deck, and land on the pad at 1,418 m.', route: ascentRoute(city), speeds: [40, 31, 24] },
-    { zh: '俯衝', en: 'THE DIVE', desc: 'Off the pad, corkscrew down through the storm, then flat out to the harbour.', route: diveRoute(city), speeds: [60, 47, 37] },
+    { en: 'MARKET DASH', desc: 'Street level through the Temple night market. Keep it on the tarmac, keep left.', route: marketRoute(city), speeds: [26, 20, 15], ground: true },
+    { en: 'SKY LANE', desc: 'North on the 168 m lane, across at 236 m, south past the Zenith. Mind the traffic.', route: laneRoute(city), speeds: [58, 46, 36] },
+    { en: 'ASCENT', desc: 'Spiral up the Zenith, through the cloud deck, and land on the pad at 1,418 m.', route: ascentRoute(city), speeds: [40, 31, 24] },
+    { en: 'THE DIVE', desc: 'Off the pad, corkscrew down through the storm, then flat out to the harbour.', route: diveRoute(city), speeds: [60, 47, 37] },
   ];
   const runs = [];
   for (const d of defs) {
