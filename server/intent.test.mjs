@@ -83,7 +83,7 @@ test('the hooks say what the agent shows, and where it runs', () => {
   assert.equal(perm.meta.choices.length, 3);
   assert.equal(claudeCode(hook({ hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash' })).meta.prompt, 'menu');
   assert.equal(claudeCode(hook({ hook_event_name: 'Notification', message: 'Claude is waiting for your input' })).meta.prompt, 'input');
-  assert.equal(claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })).message, 'Allow Bash(rm -rf build)?');
+  assert.equal(claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })).last, 'Allow Bash(rm -rf build)?');
   // the question tool's own permission request keeps the question's options
   const qperm = claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'AskUserQuestion', tool_input: {} }));
   assert.equal(qperm.meta.prompt, 'menu');
@@ -95,5 +95,14 @@ test('the hooks say what the agent shows, and where it runs', () => {
   assert.equal(work.meta.pid, undefined);
   assert.equal(claudeCode(hook({ hook_event_name: 'PostToolUse', tool_name: 'Bash' })).status, 'working');
   assert.equal(claudeCode(hook({ hook_event_name: 'Stop' })).meta.prompt, 'input');
+  // the turn's reply: written to the terminal, its first line the agent's last word
+  const done = claudeCode(hook({ hook_event_name: 'Stop', last_assistant_message: '## Amy\n\nAmy is a **voice** assistant in `src/agent`.' }));
+  assert.equal(done.last, 'Amy');
+  assert.match(done.text, /⏺/);
+  assert.match(done.text, /\x1b\[1mvoice\x1b\[0m/);
+  assert.match(done.text, /\x1b\[36msrc\/agent\x1b\[0m/);
+  assert.equal(claudeCode(hook({ hook_event_name: 'Stop' })).last, 'Finished, waiting for the next prompt');
+  // a subagent's end is no last word
+  assert.equal(claudeCode(hook({ hook_event_name: 'SubagentStop' })).last, undefined);
   assert.equal(codex({ type: 'agent-turn-complete', cwd: '/w' }, { pid: 77 }).meta.pid, 77);
 });

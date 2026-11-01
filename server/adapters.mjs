@@ -2,7 +2,22 @@
 // bare `curl --data-binary @-` with no jq or script. POST /api/hooks/<name>.
 import { basename } from 'node:path';
 
-const C = { reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', mag: '\x1b[35m', grey: '\x1b[90m' };
+const C = { reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', mag: '\x1b[35m', cyan: '\x1b[36m', grey: '\x1b[90m' };
+const REPLY_MAX = 16 * 1024;
+
+// what the agent wrote back, for the terminal: its Markdown read the way a terminal shows it (headings and **bold**
+// in bold, `code` in cyan), after a ⏺ as Claude Code draws a reply
+function reply(md) {
+  let s = String(md ?? '').replace(/\r/g, '').trim();
+  if (!s) return '';
+  if (s.length > REPLY_MAX) s = `${s.slice(0, REPLY_MAX)}\n…`;
+  const lines = s.split('\n').map((l) => (/^#{1,6}\s/.test(l)
+    ? `${C.bold}${l.replace(/^#{1,6}\s+/, '')}${C.reset}`
+    : l.replace(/\*\*([^*]+)\*\*/g, `${C.bold}$1${C.reset}`).replace(/`([^`\n]+)`/g, `${C.cyan}$1${C.reset}`)));
+  return `\n${C.bold}⏺${C.reset} ${lines.join('\n  ')}\n`;
+}
+// its first line of words, for the agent's last line
+const firstLine = (md) => clip(String(md ?? '').replace(/[#*`>_]/g, '').split('\n').find((l) => l.trim()) || '', 200);
 const clip = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
 function toolSummary(name, input = {}) {
@@ -30,7 +45,7 @@ function question(base, input) {
   if (!q?.options?.length) return null;
   const choices = q.options.slice(0, 9).map(label);
   return {
-    ...base, status: 'waiting', message: clip(q.question || 'A question for you', 300),
+    ...base, status: 'waiting', last: clip(q.question || 'A question for you', 300),
     meta: { ...base.meta, prompt: 'menu', choices },
     text: `\n${C.mag}${C.bold}? ${q.question || ''}${C.reset}\n${choices.map((c, i) => `${C.mag}  ${i + 1}. ${c}${C.reset}`).join('\n')}\n`,
   };
@@ -50,19 +65,19 @@ export function claudeCode(p, { host, pid } = {}) {
   const busy = { ...base, meta: { ...base.meta, ...quiet } };
   switch (p.hook_event_name) {
     case 'SessionStart':
-      return { ...busy, status: 'idle', message: `Session ${p.source || 'started'}`, text: `${C.grey}── session ${p.source || 'start'} · ${p.session_id || ''} ──${C.reset}\n` };
+      return { ...busy, status: 'idle', last: `Session ${p.source || 'started'}`, text: `${C.grey}── session ${p.source || 'start'} · ${p.session_id || ''} ──${C.reset}\n` };
     case 'UserPromptSubmit':
-      return { ...busy, status: 'working', message: `Prompt: ${clip(p.prompt, 160)}`, meta: { ...busy.meta, task: clip(p.prompt, 200) }, text: `\n${C.mag}${C.bold}❯${C.reset} ${C.bold}${String(p.prompt ?? '').trim()}${C.reset}\n\n` };
+      return { ...busy, status: 'working', last: `Prompt: ${clip(p.prompt, 160)}`, meta: { ...busy.meta, task: clip(p.prompt, 200) }, text: `\n${C.mag}${C.bold}❯${C.reset} ${C.bold}${String(p.prompt ?? '').trim()}${C.reset}\n\n` };
     case 'PreToolUse': {
       const q = p.tool_name === 'AskUserQuestion' && question(base, p.tool_input);
       if (q) return q;
-      return { ...busy, status: 'working', message: toolSummary(p.tool_name, p.tool_input), text: `${C.yellow}⏺${C.reset} ${C.bold}${toolSummary(p.tool_name, p.tool_input)}${C.reset}\n` };
+      return { ...busy, status: 'working', last: toolSummary(p.tool_name, p.tool_input), text: `${C.yellow}⏺${C.reset} ${C.bold}${toolSummary(p.tool_name, p.tool_input)}${C.reset}\n` };
     }
     case 'PermissionRequest':
       // the question tool asks through the permission dialog too: its options are the choice, not yes or no
       if (p.tool_name === 'AskUserQuestion') return { ...base, status: 'waiting', meta: { ...base.meta, prompt: 'menu' } };
       return {
-        ...base, status: 'waiting', message: `Allow ${toolSummary(p.tool_name, p.tool_input)}?`,
+        ...base, status: 'waiting', last: `Allow ${toolSummary(p.tool_name, p.tool_input)}?`,
         meta: { ...base.meta, prompt: 'menu', choices: MENU_CHOICES },
         text: `\n${C.mag}${C.bold}? Allow ${toolSummary(p.tool_name, p.tool_input)}?${C.reset}\n`,
       };
@@ -82,19 +97,25 @@ export function claudeCode(p, { host, pid } = {}) {
       // a question's own options stay (its notification names the tool), a permission prompt's are yes and no
       const asks = /AskUserQuestion/.test(p.message || '');
       return {
-        ...base, status: 'waiting', message: clip(p.message || 'Needs your attention', 300),
+        ...base, status: 'waiting', last: clip(p.message || 'Needs your attention', 300),
         meta: { ...base.meta, prompt, ...(asks ? {} : { choices: type === 'permission_prompt' ? MENU_CHOICES : null }) },
         text: `\n${C.mag}${C.bold}? ${p.message || 'Needs your attention'}${C.reset}\n`,
       };
     }
     case 'Stop':
-      return { ...base, status: 'done', message: 'Finished, waiting for the next prompt', meta: { ...base.meta, prompt: 'input', choices: null }, text: `\n${C.green}${C.bold}✔ Turn finished${C.reset}\n` };
+      // what Claude wrote back at the end of the turn (newer Claude Codes send it): the answer the driver came for
+      return {
+        ...base, status: 'done', last: firstLine(p.last_assistant_message) || 'Finished, waiting for the next prompt',
+        meta: { ...base.meta, prompt: 'input', choices: null },
+        text: `${reply(p.last_assistant_message)}\n${C.green}${C.bold}✔ Turn finished${C.reset}\n`,
+      };
     case 'SubagentStop':
-      return { ...base, message: 'Subagent finished' };
+      // a subagent's own end: a line in the terminal, not the agent's last word
+      return { ...base, text: `${C.grey}  ⎿  subagent finished${C.reset}\n` };
     case 'PreCompact':
-      return { ...base, message: 'Compacting context', text: `${C.dim}… compacting context${C.reset}\n` };
+      return { ...base, last: 'Compacting context', text: `${C.dim}… compacting context${C.reset}\n` };
     case 'SessionEnd':
-      return { ...base, end: true, message: `Session ended${p.reason ? ` (${p.reason})` : ''}`, text: `${C.grey}── session end ──${C.reset}\n` };
+      return { ...base, end: true, last: `Session ended${p.reason ? ` (${p.reason})` : ''}`, text: `${C.grey}── session end ──${C.reset}\n` };
     default:
       return { ...base, message: p.hook_event_name };
   }
@@ -113,9 +134,9 @@ export function codex(p, { host, pid } = {}) {
     const said = String(p['last-assistant-message'] ?? p.last_assistant_message ?? '').trim();
     return {
       ...base, status: 'done',
-      message: said ? clip(said, 200) : 'Turn complete',
+      last: said ? firstLine(said) : 'Turn complete',
       meta: { ...base.meta, prompt: 'input', ...(asked ? { task: clip(asked, 200) } : {}) },
-      text: `${asked ? `\n${C.mag}${C.bold}❯${C.reset} ${C.bold}${asked}${C.reset}\n\n` : ''}${said ? `${said}\n` : ''}${C.green}${C.bold}✔ Turn complete${C.reset}\n`,
+      text: `${asked ? `\n${C.mag}${C.bold}❯${C.reset} ${C.bold}${asked}${C.reset}\n\n` : ''}${reply(said)}\n${C.green}${C.bold}✔ Turn complete${C.reset}\n`,
     };
   }
   return { ...base, message: p.type };
