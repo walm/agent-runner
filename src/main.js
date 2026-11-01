@@ -53,7 +53,7 @@ import { NavVisuals } from './game/navvis.js';
 const params = new URLSearchParams(location.search);
 const WARM_STALL_MS = 8000; // the boot stops waiting for its shader warm-up once nothing has compiled for this long
 
-const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, agentVoice: 1, radioVoice: 1, volume: 0.8, background: 1, music: 0.6, voiceVolume: 1, radioSource: 'neonfm', radioCategory: 'all', radioDj: 1, fov: 60, hud: 1, shake: 1 };
+const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, agentVoice: 1, radioVoice: 1, volume: 0.8, background: 1, music: 0.6, voiceVolume: 1, radioSource: 'neonfm', radioCategory: 'all', radioDj: 1, fov: 60, hud: 1, shake: 1, talkLang: 'en' };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nz.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }

@@ -1,7 +1,8 @@
 // The agent layer: the feed, where each agent lives, its beacon, name tag and neon sign, its billboard on the LED
 // screens, the list and the terminal, and the glue to the game (prompt at the door, compass/minimap/map markers, toasts and radio for what needs you).
 // Overlays reuse screens.open ('agents' | 'terminal'), so the car freezes and other menus stay shut as for any screen.
-import { AgentFeed } from './feed.js';
+import { AgentFeed, API } from './feed.js';
+import { Talk } from './talk.js';
 import { Placement } from './placement.js';
 import { AgentVisuals, CAP, styleOf } from './visuals.js';
 import { AgentLabels } from './labels.js';
@@ -62,12 +63,29 @@ export class AgentLayer {
     this.panel.onWarp = (id) => this.warp(id);
     this.panel.onClose = () => this.close();
     this.term.onClose = () => this.close();
+    // push to talk in the terminal (talk.js): Space, X on a gamepad, or the terminal's button held
+    this.talk = new Talk(API, (st) => this.term.talk(st, this.device()));
+    this.talk.language = () => this.game?.settings?.talkLang || 'en';
+    this.term.onTalk = (down) => (down ? this.talkDown() : this.talk.release());
 
     // keys for our overlays are taken in the capture phase, before the game's own listener sees them
     addEventListener('keydown', (e) => this.key(e), true);
+    addEventListener('keyup', (e) => { if (e.code === 'Space' && this.open === 'terminal') { this.talk.release(); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+    addEventListener('blur', () => this.talk.release());
   }
 
   bind(game) { this.game = game; }
+
+  // which push-to-talk the terminal names: the gamepad's X, the button on a touch screen, or Space
+  device() {
+    if (this.game?.input?.lastDevice === 'gamepad') return 'gamepad';
+    return matchMedia('(pointer: coarse)').matches ? 'touch' : 'keyboard';
+  }
+
+  talkDown() {
+    const e = this.entries.get(this.term.id);
+    if (e && this.open === 'terminal') this.talk.press(e.agent);
+  }
 
   get open() { const o = this.screens.open; return o === 'agents' || o === 'terminal' ? o : null; }
 
@@ -149,6 +167,8 @@ export class AgentLayer {
     this.panel.hide();
     this.screens.open = 'terminal';
     this.term.open(e.agent);
+    this.talk.prepare(); // the speech model, ready by the time the driver talks
+    this.talk.show();
     this.game?.sound?.ui?.();
   }
 
@@ -156,6 +176,7 @@ export class AgentLayer {
     if (!this.open) return;
     this.panel.hide();
     this.term.close();
+    this.talk.close();
     this.screens.open = null;
     this.game?.sound?.ui?.();
   }
@@ -168,6 +189,12 @@ export class AgentLayer {
     if (scroll) {
       if (e.code.startsWith('Page')) this.term.page(scroll);
       else this.term.scroll(scroll);
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
+    if (o === 'terminal' && e.code === 'Space') {
+      if (!e.repeat) this.talkDown();
       e.preventDefault();
       e.stopImmediatePropagation();
       return;
@@ -265,6 +292,8 @@ export class AgentLayer {
     this.labels.update(camera, this.entries.values(), hidden);
     this.renderCard(hidden);
     this.pad();
+    // the talk line names the key of the device in hand
+    if (this.open === 'terminal') { const d = this.device(); if (d !== this.talkDevice) { this.talkDevice = d; this.talk.show(); } }
     if (this.open === 'agents' && this.listDirty) { this.panel.render(this.ranked(), this.feed.connected); this.listDirty = false; }
     if (this.game?.waypointAgent && !this.game.waypoint) this.game.waypointAgent = null;
     this.pendingWarp();
@@ -284,7 +313,7 @@ export class AgentLayer {
   }
 
   // a gamepad in the terminal (the car is parked meanwhile): either stick scrolls, faster the further it is pushed;
-  // the d-pad steps a line, held to repeat; LB / RB a page; A or B closes. Standard mapping: 0 A, 1 B, 4 LB, 5 RB,
+  // the d-pad steps a line, held to repeat; LB / RB a page; X held talks to the agent; A or B closes. Standard mapping: 0 A, 1 B, 4 LB, 5 RB,
   // 12/13 d-pad.
   pad() {
     const now = performance.now(), dt = Math.min(0.1, (now - (this.padT || now)) / 1000);
@@ -309,8 +338,11 @@ export class AgentLayer {
       }
       if (edge(4)) this.term.page(-1);
       if (edge(5)) this.term.page(1);
+      // X held: push to talk
+      if (edge(2)) this.talkDown();
+      else if (!btn(2) && prev[`${p.index}:2`]) this.talk.release();
       const close = edge(0) || edge(1);
-      for (const i of [0, 1, 4, 5, 12, 13]) prev[`${p.index}:${i}`] = btn(i);
+      for (const i of [0, 1, 2, 4, 5, 12, 13]) prev[`${p.index}:${i}`] = btn(i);
       if (close) { this.close(); return; }
     }
   }

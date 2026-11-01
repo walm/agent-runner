@@ -34,7 +34,8 @@ export class TerminalView {
           </div>
           <div class="tmeta"></div>
           <div class="tbody"></div>
-          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">READ-ONLY · ↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
+          <div class="ttalk idle"><button class="btn mic" data-ag="talk">HOLD TO TALK</button><span class="tt"></span><i class="lvl"><b></b></i></div>
+          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#agterm');
@@ -47,6 +48,21 @@ export class TerminalView {
     this.onClose = null;
     this.fixed = null; // [cols, rows] while a headset shows the terminal; otherwise it fits the window
     addEventListener('resize', () => this.fit());
+    // push to talk with the mouse or a finger, as Space does on the keyboard (agents.js)
+    this.onTalk = null; // (down) => void
+    const mic = this.q('.mic');
+    mic.addEventListener('pointerdown', (e) => { e.preventDefault(); mic.setPointerCapture?.(e.pointerId); this.onTalk?.(true); });
+    for (const ev of ['pointerup', 'pointercancel']) mic.addEventListener(ev, () => this.onTalk?.(false));
+  }
+
+  // the talk line (talk.js): what to say and how, or what is happening; device picks the key it names
+  talk(s, device) {
+    const bar = this.q('.ttalk');
+    bar.className = `ttalk ${s.tone || 'idle'}`;
+    const key = device === 'gamepad' ? 'HOLD X' : device === 'touch' ? 'HOLD THE BUTTON' : 'HOLD SPACE';
+    this.q('.tt').textContent = s.hint ? `${key} AND TALK · “SELECT 2” · “YES” · “GO” · “NO” · OR SAY WHAT TO DO` : s.text;
+    this.q('.lvl b').style.width = `${Math.round((s.level || 0) * 100)}%`;
+    this.q('.mic').classList.toggle('on', s.phase === 'listening');
   }
 
   ensureTerm() {
