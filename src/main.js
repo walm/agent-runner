@@ -241,7 +241,7 @@ async function boot() {
     const t = radio.current, dj = radio.djActive ? radio.dj.dj.name : '';
     const fm = !t || t.category === 'neon fm';
     hud.nowPlaying({
-      on: !!t && sound.radio,
+      show: !!t, on: sound.radio, live: !!radio.source?.live,
       label: (fm ? 'NEON FM 88.1' : `RADIO · ${t.category}`).toUpperCase() + (dj ? ` · DJ ${dj.toUpperCase()}` : ''),
       title: fm ? 'Live synth score' : t.title,
       artist: fm ? 'the city, after dark' : t.artist,
@@ -249,6 +249,21 @@ async function boot() {
   }
   sound.onRadio = ((toggle) => (on) => { toggle(on); showNowPlaying(); })(sound.onRadio);
   voice.onSpeak = (isRadio, on) => hud.onAir(isRadio && on);
+  // the overlay's buttons
+  hud.onRadioCmd = (cmd) => {
+    sound.start();
+    if (cmd === 'power') return game.action('radio');
+    if (!sound.radio) game.action('radio'); // a station or a track means: play
+    if (cmd === 'next') game.action('next');
+    else if (cmd === 'prev') { if (!radio.prev()) hud.toast('NOTHING EARLIER ON THIS STATION'); }
+    else if (cmd === 'station') {
+      const st = radio.stations(), next = st[(st.findIndex((s) => s.id === radio.station()) + 1) % st.length];
+      settings.radioSource = next.source;
+      if (next.category) settings.radioCategory = next.category;
+      applySetting('radioSource');
+      hud.toast(esc(`STATION · ${next.name}`), 'radio');
+    }
+  };
   sound.onStart = () => radio.start();
   agents.feed.onRadio = (s) => radio.setDj(s);
   agents.feed.onAnnounce = (a) => radio.announce(a);

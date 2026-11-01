@@ -162,6 +162,22 @@ export class MusicPlayer {
     this.onChange?.();
   }
 
+  // the stations the HUD's STATION button steps through: NEON FM, all the music, then each category
+  stations() {
+    const lib = this.sources[1].available && this.tracks.some((t) => t.category !== SYNTH);
+    return [
+      { id: SYNTH, source: 'neonfm', name: 'NEON FM 88.1' },
+      ...(lib ? [{ id: 'all', source: 'library', category: 'all', name: 'ALL MUSIC' }] : []),
+      ...(lib ? this.categories.filter((c) => c !== SYNTH).map((c) => ({ id: c, source: 'library', category: c, name: c.toUpperCase() })) : []),
+    ];
+  }
+
+  // the station on now, as stations() names it
+  station() {
+    const c = this.choice().category;
+    return c === SYNTH ? SYNTH : c || 'all';
+  }
+
   // ---- the listener ----
 
   next() {

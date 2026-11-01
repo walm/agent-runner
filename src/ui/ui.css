@@ -142,6 +142,15 @@
 .h-np.air small { color: var(--mag); }
 .h-np.air small::before { content: '● ON AIR · '; }
 .h-np.air .eq b { background: var(--mag); box-shadow: 0 0 6px var(--mag); }
+.h-np .ctl { display: flex; justify-content: flex-end; gap: 4px; margin-top: 7px; }
+.h-np .ctl button { pointer-events: auto; cursor: pointer; font: 9px var(--display); letter-spacing: 0.16em; color: var(--ink-dim); background: rgba(10, 14, 28, 0.55);
+  border: 1px solid var(--line); padding: 4px 7px; line-height: 1; transition: color 0.2s, border-color 0.2s, background 0.2s; }
+.h-np .ctl button:hover { color: #fff; border-color: var(--cyan-dim); background: rgba(59, 232, 255, 0.14); }
+.h-np.live .ctl [data-np=prev], .h-np.live .ctl [data-np=next] { opacity: 0.3; pointer-events: none; }
+.h-np.off .eq b { animation: none; transform: scaleY(0.2); background: var(--ink-faint); box-shadow: none; }
+.h-np.off small { color: var(--ink-faint); }
+.h-np.off .t, .h-np.off .a { opacity: 0.45; }
+.h-np.hidden .ctl button { pointer-events: none; }
 .touch .h-np { display: none; }
 .radio-line { font-size: 12px; line-height: 1.6; color: var(--ink); margin-bottom: 10px; animation: toast 7s ease forwards; padding-left: 10px; border-left: 1px solid var(--cyan-dim); }
 .radio-line .who { display: block; font-size: 9px; letter-spacing: 0.36em; color: var(--cyan); margin-bottom: 2px; }

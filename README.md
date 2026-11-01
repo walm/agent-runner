@@ -60,7 +60,8 @@ or over them, read out in the agent voice. A summary of a Slack channel, the pul
 deploy that finished: what it says is up to you. See [The radio](docs/AGENT-API.md#the-radio),
 [integrations/generic/radio.sh](integrations/generic/radio.sh), and two example DJs in
 [integrations/radio](integrations/radio). AGENT DJ in the menu turns it off, and your own picks win until the DJ
-picks again. The lower right corner of the HUD shows what plays, and ON AIR while the radio speaks. The first ride
+picks again. The lower right corner of the HUD shows what plays, ON AIR while the radio speaks, and buttons to
+change it: ◀◀ and ▶▶ for the track, STATION ▸ through NEON FM, all the music and each category, and on / off. The first ride
 opens with the radio's welcome: how many agents are on shift and how many need you (what the DJ said while you
 sat on the title follows it).
 
