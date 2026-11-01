@@ -11,6 +11,9 @@ export class AgentFeed {
     this.onRemove = null; // (id) => void
     this.onConnection = null; // (connected) => void
     this.onSnapshot = null; // () => void, after every (re)connect
+    this.boards = new Map(); // agent id -> { agent, title, caption, type, v, at }: the agents' billboards
+    this.onBoard = null; // (board) => void, put up or replaced
+    this.onBoardRemove = null; // (agent id) => void
     this.outputSubs = new Map(); // id -> Set(fn(text, seq))
     this.retry = 1000;
     this.lastMsg = 0;
@@ -62,6 +65,20 @@ export class AgentFeed {
       this.agents.delete(id);
       this.onRemove?.(id);
     });
+    // every connect sends the whole set after the snapshot; then one at a time
+    es.addEventListener('billboards', (e) => {
+      const list = JSON.parse(e.data);
+      const ids = new Set(list.map((b) => b.agent));
+      for (const id of [...this.boards.keys()]) if (!ids.has(id)) { this.boards.delete(id); this.onBoardRemove?.(id); }
+      for (const b of list) if (this.boards.get(b.agent)?.v !== b.v) { this.boards.set(b.agent, b); this.onBoard?.(b); }
+    });
+    es.addEventListener('billboard', (e) => {
+      seen();
+      const b = JSON.parse(e.data);
+      if (b.removed) { if (this.boards.delete(b.agent)) this.onBoardRemove?.(b.agent); return; }
+      this.boards.set(b.agent, b);
+      this.onBoard?.(b);
+    });
     es.addEventListener('output', (e) => {
       const { id, text, seq } = JSON.parse(e.data);
       const subs = this.outputSubs.get(id);
@@ -83,6 +100,9 @@ export class AgentFeed {
     } catch {}
     return { text: '', seq: 0 };
   }
+
+  // where a billboard's image is (the version busts any cache)
+  boardImage(b) { return `${API}/billboard/image?agent=${encodeURIComponent(b.agent)}&v=${b.v}`; }
 
   // live output chunks (text, seq) for one agent; returns an unsubscribe
   subscribe(id, fn) {

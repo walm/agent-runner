@@ -81,6 +81,42 @@ function* session(a) {
   yield { wait: between(10, 30) };
 }
 
+// Billboards the mock agents put up: three posters as an agent would draw them (SVG it wrote for its task) and two
+// that are only words. Each SVG is square, the way the docs ask: the city fits it to tall and wide screens.
+const poster = (bg1, bg2, accent, art, big, small) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></linearGradient></defs>
+<rect width="1024" height="1024" fill="url(#g)"/>
+<g stroke="${accent}" stroke-opacity="0.14" stroke-width="2">${Array.from({ length: 15 }, (_, i) => `<line x1="0" y1="${64 + i * 64}" x2="1024" y2="${64 + i * 64}"/>`).join('')}</g>
+${art}
+<text x="512" y="820" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="900" font-size="120" fill="#ffffff">${big}</text>
+<text x="512" y="900" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-weight="600" font-size="44" letter-spacing="10" fill="${accent}">${small}</text>
+</svg>`;
+export const BILLBOARDS = [
+  {
+    agent: AGENTS[0].id, title: 'Signed cookies', caption: 'Sessions move off headers onto signed, HTTP-only cookies',
+    svg: poster('#1a0610', '#050208', '#ff3d6e',
+      '<circle cx="512" cy="380" r="230" fill="#c98a4b"/><circle cx="430" cy="310" r="34" fill="#5a3518"/><circle cx="600" cy="300" r="26" fill="#5a3518"/><circle cx="560" cy="460" r="38" fill="#5a3518"/><circle cx="420" cy="470" r="22" fill="#5a3518"/>'
+      + '<rect x="600" y="430" width="200" height="170" rx="22" fill="#ff3d6e"/><path d="M640 430v-60a60 60 0 0 1 120 0v60" fill="none" stroke="#ff3d6e" stroke-width="34"/><circle cx="700" cy="505" r="22" fill="#1a0610"/>',
+      'SIGNED', 'AUTH REFACTOR · SHOP-API'),
+  },
+  {
+    agent: AGENTS[1].id, title: 'Faceted search', caption: 'Filters down the side, results that keep up as you type',
+    svg: poster('#041420', '#02060c', '#3be8ff',
+      '<rect x="180" y="150" width="200" height="460" rx="18" fill="none" stroke="#3be8ff" stroke-width="10"/>' + [0, 1, 2, 3, 4].map((i) => `<rect x="212" y="${190 + i * 82}" width="${90 + (i % 3) * 30}" height="26" rx="13" fill="#3be8ff" fill-opacity="${0.9 - i * 0.12}"/>`).join('')
+      + [0, 1, 2].map((r) => [0, 1].map((c) => `<rect x="${430 + c * 210}" y="${150 + r * 160}" width="180" height="130" rx="14" fill="#0b2a3a" stroke="#3be8ff" stroke-opacity="0.6" stroke-width="4"/>`).join('')).join(''),
+      'SEARCH', 'DEPICT-WEB · FACETS'),
+  },
+  {
+    agent: AGENTS[2].id, title: 'Drift: zero', caption: 'eu-north-1 reconciled with the plan',
+    svg: poster('#0d0a1c', '#04030a', '#a98bff',
+      '<polygon points="512,140 742,272 742,536 512,668 282,536 282,272" fill="none" stroke="#a98bff" stroke-width="14"/><polygon points="512,230 664,318 664,494 512,582 360,494 360,318" fill="#a98bff" fill-opacity="0.22"/>'
+      + '<path d="M430 400l60 60 120-130" fill="none" stroke="#5dff9a" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>',
+      'DRIFT 0', 'INFRA · TERRAFORM'),
+  },
+  { agent: AGENTS[4].id, title: 'October backfilled', caption: '31 days · 4.2M rows · 0 dead letters' },
+  { agent: AGENTS[7].id, title: 'v2.14 is live', caption: 'shop-api rolled out to prod · canary clean' },
+];
+
 // post(events) may return a promise; errors are logged and the agent carries on
 export function runMock(post, { fast = false, agents = AGENTS } = {}) {
   const k = fast ? 0.33 : 1;
@@ -119,6 +155,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const url = opt('--url', 'http://127.0.0.1:5210').replace(/\/$/, '');
   const token = opt('--token', process.env.AGENT_CITY_TOKEN || '');
   console.log(`[mock] posting ${AGENTS.length} agents to ${url}/api/events`);
+  const auth = token ? { Authorization: `Bearer ${token}` } : {};
+  setTimeout(() => {
+    for (const b of BILLBOARDS) fetch(`${url}/api/billboard`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...auth }, body: JSON.stringify(b) }).catch(() => {});
+  }, 3000);
   runMock(async (events) => {
     const r = await fetch(`${url}/api/events`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(events) });
     return r.json();

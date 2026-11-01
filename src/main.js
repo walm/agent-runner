@@ -147,7 +147,8 @@ async function boot() {
   const signs = createSigns(city, tex);
   scene.add(signs.group);
   await loadAdFonts();
-  const ads = createAdScreens(city, drawAdAtlas(isTouch()));
+  const adAtlas = drawAdAtlas(isTouch());
+  const ads = createAdScreens(city, adAtlas);
   scene.add(ads.group);
   scene.add(createAviationLights(city).group);
   const props = createProps(city, tex, lightmap);
@@ -208,7 +209,7 @@ async function boot() {
     onSetting: (k) => applySetting(k),
   });
   // built before the warm-up so its beacons compile with everything else
-  const agents = new AgentLayer({ city, ui, screens, hud });
+  const agents = new AgentLayer({ city, ui, screens, hud, adAtlas });
   scene.add(agents.group);
   const nav = new Nav(city);
   const navVis = new NavVisuals(hud.el);

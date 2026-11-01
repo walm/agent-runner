@@ -91,3 +91,45 @@ test('codex notify payloads map to events', () => {
   assert.ok(validate(e).ok);
   assert.ok(codex({}).error);
 });
+
+test('billboard images are typed by their bytes', async () => {
+  const { sniffImage } = await import('./store.mjs');
+  assert.equal(sniffImage(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])), 'image/png');
+  assert.equal(sniffImage(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0])), 'image/jpeg');
+  assert.equal(sniffImage(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"></svg>')), 'image/svg+xml');
+  assert.equal(sniffImage(Buffer.from('<?xml version="1.0"?>\n<svg></svg>')), 'image/svg+xml');
+  assert.equal(sniffImage(Buffer.from('<html><body>not an image</body></html>')), null);
+  assert.equal(sniffImage(Buffer.from('#!/bin/sh echo hi there')), null);
+});
+
+test('billboards validate, replace, evict and go with their agent', async () => {
+  const { validateBillboard } = await import('./store.mjs');
+  assert.equal(validateBillboard({ title: 'x' }).ok, false);
+  assert.equal(validateBillboard({ agent: 'a' }).ok, false); // neither an image nor a title
+  assert.equal(validateBillboard({ agent: 'a', image: Buffer.from('<html></html> and some more') }).ok, false);
+  assert.equal(validateBillboard({ agent: 'a', image: Buffer.alloc(LIMITS.image + 1, 0x20) }).ok, false);
+  const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>');
+  const v = validateBillboard({ agent: 'a', title: 'T'.repeat(500), image: svg });
+  assert.ok(v.ok);
+  assert.equal(v.board.title.length, LIMITS.title);
+  assert.equal(v.board.type, 'image/svg+xml');
+
+  const s = new Store();
+  const seen = [];
+  s.on((kind, d) => { if (kind === 'billboard') seen.push(d); });
+  s.setBillboard(v.board);
+  assert.ok(s.agents.has('a'), 'a billboard from an unknown agent gives it a building');
+  const first = s.boards.get('a').v;
+  s.setBillboard(ok2({ agent: 'a', title: 'again' }));
+  assert.ok(s.boards.get('a').v > first);
+  assert.equal(s.boards.size, 1);
+  for (let i = 0; i < LIMITS.billboards; i++) s.setBillboard(ok2({ agent: `b${i}`, title: 'x' }));
+  assert.equal(s.boards.size, LIMITS.billboards);
+  assert.ok(!s.boards.has('a'), 'the longest-standing billboard comes down first');
+  assert.ok(seen.some((d) => d.agent === 'a' && d.removed));
+  s.remove('b3');
+  assert.ok(!s.boards.has('b3'));
+  assert.deepEqual(Object.keys(s.boardList()[0]).sort(), ['agent', 'at', 'caption', 'title', 'type', 'v']);
+
+  function ok2(b) { const r = validateBillboard(b); assert.ok(r.ok, r.error); return r.board; }
+});

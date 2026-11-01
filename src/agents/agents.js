@@ -1,5 +1,5 @@
-// The agent layer: the feed, where each agent lives, its beacon and name tag, the list and the terminal, and the
-// glue to the game (prompt at the door, compass/minimap/map markers, toasts and radio for what needs you).
+// The agent layer: the feed, where each agent lives, its beacon, name tag and neon sign, its billboard on the LED
+// screens, the list and the terminal, and the glue to the game (prompt at the door, compass/minimap/map markers, toasts and radio for what needs you).
 // Overlays reuse screens.open ('agents' | 'terminal'), so the car freezes and other menus stay shut as for any screen.
 import { AgentFeed } from './feed.js';
 import { Placement } from './placement.js';
@@ -7,6 +7,8 @@ import { AgentVisuals, CAP, styleOf } from './visuals.js';
 import { AgentLabels } from './labels.js';
 import { AgentPanel } from './panel.js';
 import { TerminalView, ago } from './terminal.js';
+import { AgentSigns } from './signs.js';
+import { AgentBillboards } from './billboards.js';
 import './agents.css';
 
 const DOCK_R = 7; // how close to the kerb ring counts as arrived
@@ -16,7 +18,8 @@ const BEAM_R = 8, BEAM_H = 140;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export class AgentLayer {
-  constructor({ city, ui, screens, hud }) {
+  // adAtlas: the LED screens' texture (city/adscreens.js), where the agents' billboards go
+  constructor({ city, ui, screens, hud, adAtlas }) {
     this.city = city;
     this.screens = screens;
     this.hud = hud;
@@ -27,6 +30,9 @@ export class AgentLayer {
     this.panel = new AgentPanel(ui);
     this.feed = new AgentFeed();
     this.term = new TerminalView(ui, this.feed);
+    this.signs = new AgentSigns();
+    this.group.add(this.signs.mesh);
+    this.billboards = adAtlas ? new AgentBillboards(adAtlas, this.feed, (id) => this.feed.agents.get(id)?.name) : null;
     this.entries = new Map(); // id -> { agent, place, slot, dist }
     this.free = Array.from({ length: CAP }, (_, i) => CAP - 1 - i);
     this.game = null;
@@ -47,6 +53,8 @@ export class AgentLayer {
     this.feed.onRemove = (id) => this.remove(id);
     this.feed.onConnection = (on) => { this.chip.classList.toggle('linked', on); this.listDirty = true; };
     this.feed.onSnapshot = () => this.term.resync();
+    this.feed.onBoard = (b) => { this.billboards?.set(b); this.cardKey = ''; };
+    this.feed.onBoardRemove = (id) => { this.billboards?.remove(id); this.cardKey = ''; };
     this.panel.onDrive = (id) => this.drive(id);
     this.panel.onWarp = (id) => this.warp(id);
     this.panel.onClose = () => this.close();
@@ -73,6 +81,7 @@ export class AgentLayer {
     }
     e.agent = a;
     this.visuals.set(e.slot, e.place, a.status);
+    this.signs.set(e.slot, e.place, a);
     this.labels.sync([...this.entries.values()]);
     if (this.term.id === a.id) this.term.header(a);
     if (notable && !initial) this.notify(a);
@@ -85,6 +94,7 @@ export class AgentLayer {
     const e = this.entries.get(id);
     if (!e) return;
     this.visuals.clear(e.slot);
+    this.signs.clear(e.slot);
     this.free.push(e.slot);
     this.placement.release(id);
     this.entries.delete(id);
@@ -226,13 +236,14 @@ export class AgentLayer {
     }
     const a = e.agent, s = styleOf(a.status), m = a.meta || {};
     const seen = ago(Date.now() - a.lastSeen);
-    const key = `${a.id}|${a.status}|${a.name}|${a.last}|${m.task}|${m.cwd}|${m.model}|${seen}`;
+    const board = this.feed.boards.get(a.id);
+    const key = `${a.id}|${a.status}|${a.name}|${a.last}|${m.task}|${m.cwd}|${m.model}|${seen}|${board?.v}`;
     if (key === this.cardKey) return;
     this.cardKey = key;
-    const rows = [m.task && ['TASK', m.task], m.cwd && ['CWD', m.cwd], m.model && ['MODEL', m.model], ['SEEN', `${seen} ago`]].filter(Boolean);
+    const rows = [m.task && ['TASK', m.task], m.cwd && ['CWD', m.cwd], m.model && ['MODEL', m.model], board && ['POSTER', board.title || 'on the screens'], ['SEEN', `${seen} ago`]].filter(Boolean);
     this.card.style.setProperty('--c', s.css);
     this.card.classList.toggle('pulse', a.status === 'waiting');
-    this.card.innerHTML = `<div class="hd"><span class="dot"></span><b>${esc(a.name)}</b><span class="st">${s.en}</span></div>
+    this.card.innerHTML = `${board?.type ? `<img class="poster" alt="" src="${esc(this.feed.boardImage(board))}">` : ''}<div class="hd"><span class="dot"></span><b>${esc(a.name)}</b><span class="st">${s.en}</span></div>
       <div class="sub">${esc(a.harness)} · ${esc(a.id)}</div>
       ${a.last ? `<div class="last">${esc(a.last)}</div>` : ''}
       <div class="rows">${rows.map(([k, v]) => `<span><i>${k}</i>${esc(v)}</span>`).join('')}</div>`;
@@ -242,6 +253,8 @@ export class AgentLayer {
   update(camera, kite) {
     const p = kite.pos;
     for (const e of this.entries.values()) e.dist = Math.hypot(p.x - e.place.dock.x, p.z - e.place.dock.z);
+    this.signs.update();
+    this.billboards?.update(performance.now());
     const hidden = !!this.screens.open || this.game?.state !== 'play' || this.inVR;
     this.labels.update(camera, this.entries.values(), hidden);
     this.renderCard(hidden);

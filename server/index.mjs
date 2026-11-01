@@ -5,8 +5,8 @@ import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Store, validate } from './store.mjs';
-import { runMock } from './mock.mjs';
+import { Store, validate, validateBillboard, LIMITS } from './store.mjs';
+import { runMock, BILLBOARDS } from './mock.mjs';
 import { ADAPTERS } from './adapters.mjs';
 
 const PORT = +(process.env.PORT || 5210);
@@ -49,15 +49,36 @@ setInterval(() => {
 // a real event, not a comment: it keeps proxies from closing idle streams, and lets the client notice a dead link
 setInterval(() => { for (const res of clients) sse(res, 'ping', Date.now()); }, 15000).unref();
 
-async function readBody(req) {
+async function readRaw(req, max = MAX_BODY) {
   const chunks = [];
   let size = 0;
   for await (const c of req) {
     size += c.length;
-    if (size > MAX_BODY) throw Object.assign(new Error(`body larger than ${MAX_BODY} bytes`), { code: 413 });
+    if (size > max) throw Object.assign(new Error(`body larger than ${max} bytes`), { code: 413 });
     chunks.push(c);
   }
-  return Buffer.concat(chunks).toString('utf8');
+  return Buffer.concat(chunks);
+}
+
+async function readBody(req) {
+  return (await readRaw(req)).toString('utf8');
+}
+
+// POST /api/billboard: the raw image as the body (fields in the query), or JSON with the image as a data URL or
+// base64 in "image", or SVG markup in "svg"
+async function readBillboard(req, url) {
+  const type = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+  const q = Object.fromEntries([...url.searchParams].filter(([k, v]) => v !== '' && k !== 'token'));
+  // base64 grows an image by a third
+  const raw = await readRaw(req, Math.ceil(LIMITS.image * 1.4) + 64 * 1024);
+  if (type.startsWith('image/')) return { agent: q.agent, title: q.title, caption: q.caption, image: raw.length ? raw : undefined };
+  let b;
+  try { b = JSON.parse(raw.toString('utf8')); } catch { return { error: 'send the image with an image/* Content-Type, or JSON' }; }
+  if (!b || typeof b !== 'object') return { error: 'billboard must be an object' };
+  let image;
+  if (typeof b.svg === 'string' && b.svg.trim()) image = Buffer.from(b.svg, 'utf8');
+  else if (typeof b.image === 'string' && b.image) image = Buffer.from(b.image.replace(/^data:[^,]*;base64,/, ''), 'base64');
+  return { agent: b.agent ?? q.agent, title: b.title ?? q.title, caption: b.caption ?? q.caption, image };
 }
 
 export function ingest(body) {
@@ -110,7 +131,7 @@ const server = http.createServer(async (req, res) => {
   const path = url.pathname;
   try {
     if (req.method === 'OPTIONS') {
-      return send(res, 204, '', { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' });
+      return send(res, 204, '', { 'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' });
     }
     if (path === '/api/health') return send(res, 200, { ok: true, agents: store.agents.size, clients: clients.size });
     if (path === '/api/events' && req.method === 'POST') {
@@ -144,6 +165,32 @@ const server = http.createServer(async (req, res) => {
       const r = ingest(e);
       return send(res, r.ok ? 200 : 400, r);
     }
+    if (path === '/api/billboard' && req.method === 'POST') {
+      if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
+      let b;
+      try { b = await readBillboard(req, url); } catch (e) { return send(res, 413, { ok: false, error: e.message }); }
+      if (b.error) return send(res, 400, { ok: false, error: b.error });
+      const v = validateBillboard(b);
+      if (!v.ok) return send(res, 400, v);
+      const board = store.setBillboard(v.board);
+      return send(res, 200, { ok: true, billboard: store.boardSummary(board) });
+    }
+    if (path === '/api/billboard' && req.method === 'DELETE') {
+      if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
+      const id = url.searchParams.get('agent');
+      return store.clearBillboard(id) ? send(res, 200, { ok: true }) : send(res, 404, { ok: false, error: 'that agent has no billboard' });
+    }
+    if (path === '/api/billboards' && req.method === 'GET') return send(res, 200, store.boardList());
+    if (path === '/api/billboard/image' && req.method === 'GET') {
+      const b = store.boards.get(url.searchParams.get('agent') || '');
+      if (!b?.image) return send(res, 404, { ok: false, error: 'no billboard image for that agent' });
+      // an SVG opened on its own must not run anything on this origin
+      res.writeHead(200, {
+        'Content-Type': b.type, 'Content-Length': b.image.length, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox", 'Access-Control-Allow-Origin': '*',
+      });
+      return res.end(b.image);
+    }
     if (path === '/api/agents' && req.method === 'GET') return send(res, 200, store.list());
     const m = path.match(/^\/api\/agents\/(.+)\/output$/);
     if (m && req.method === 'GET') {
@@ -155,6 +202,7 @@ const server = http.createServer(async (req, res) => {
       res.flushHeaders();
       res.write('retry: 2000\n\n');
       sse(res, 'snapshot', store.list());
+      sse(res, 'billboards', store.boardList());
       clients.add(res);
       req.on('close', () => clients.delete(res));
       return;
@@ -173,5 +221,12 @@ server.listen(PORT, HOST, () => {
   if (args.has('--mock')) {
     console.log('[agent-city] mock agents running in-process');
     runMock((events) => ingest(events), { fast: args.has('--fast') });
+    // once the agents have reported in, their billboards go up
+    setTimeout(() => {
+      for (const b of BILLBOARDS) {
+        const v = validateBillboard({ ...b, image: b.svg ? Buffer.from(b.svg) : undefined });
+        if (v.ok) store.setBillboard(v.board);
+      }
+    }, 3000).unref();
   }
 });

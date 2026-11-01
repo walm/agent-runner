@@ -1,5 +1,6 @@
-// In-memory agent registry: validates incoming events, keeps a summary and a bounded output buffer per agent,
-// and tells listeners what changed. No I/O here, so it can be tested on its own.
+// In-memory agent registry: validates incoming events, keeps a summary and a bounded output buffer per agent, and
+// each agent's billboard (a poster it made for the city's LED screens), and tells listeners what changed. No I/O
+// here, so it can be tested on its own.
 //
 // An event is one flat object. Only `agent` is required; every other field is optional and independent, so a
 // hook can say "waiting, and here is why" in one POST:
@@ -18,6 +19,10 @@ export const LIMITS = {
   output: 256 * 1024,
   meta: 4 * 1024,
   agents: 500,
+  title: 80,
+  caption: 200,
+  image: 2 * 1024 * 1024,
+  billboards: 16,
 };
 export const OFFLINE_MS = 15 * 60 * 1000;
 export const PRUNE_ENDED_MS = 2 * 60 * 60 * 1000;
@@ -54,10 +59,42 @@ export function validate(e) {
   };
 }
 
+// an image's type from its first bytes, never from what the sender says it is
+export function sniffImage(buf) {
+  if (!buf || buf.length < 12) return null;
+  if (buf[0] === 0x89 && buf.toString('latin1', 1, 4) === 'PNG') return 'image/png';
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  if (buf.toString('latin1', 0, 4) === 'GIF8') return 'image/gif';
+  const head = buf.toString('utf8', 0, Math.min(buf.length, 1024)).replace(/^\uFEFF/, '').trimStart();
+  if ((head.startsWith('<svg') || head.startsWith('<?xml') || head.startsWith('<!--')) && buf.toString('utf8').includes('<svg')) return 'image/svg+xml';
+  return null;
+}
+
+// a billboard: { agent, title?, caption?, image? (Buffer) }; returns { ok, board } or { ok: false, error }
+export function validateBillboard(b) {
+  if (!b || typeof b !== 'object') return { ok: false, error: 'billboard must be an object' };
+  const agent = typeof b.agent === 'string' ? b.agent.trim() : '';
+  if (!agent) return { ok: false, error: '"agent" (the id the agent reports with) is required' };
+  if (agent.length > LIMITS.id) return { ok: false, error: `"agent" is longer than ${LIMITS.id} chars` };
+  let type = null;
+  if (b.image !== undefined) {
+    if (!Buffer.isBuffer(b.image) || !b.image.length) return { ok: false, error: 'the image is empty' };
+    if (b.image.length > LIMITS.image) return { ok: false, error: `the image is larger than ${LIMITS.image} bytes` };
+    type = sniffImage(b.image);
+    if (!type) return { ok: false, error: 'the image must be PNG, JPEG, WebP, GIF or SVG' };
+  }
+  const title = str(b.title, LIMITS.title), caption = str(b.caption, LIMITS.caption);
+  if (!type && !title) return { ok: false, error: 'send an image, a "title", or both' };
+  return { ok: true, board: { agent, title, caption, type, image: type ? b.image : undefined } };
+}
+
 export class Store {
   constructor({ now = () => Date.now() } = {}) {
     this.now = now;
     this.agents = new Map();
+    this.boards = new Map(); // agent id -> { agent, title, caption, type, image, v, at }
+    this.boardSeq = 0;
     this.listeners = new Set();
   }
 
@@ -136,7 +173,34 @@ export class Store {
 
   remove(id) {
     if (!this.agents.delete(id)) return false;
+    this.clearBillboard(id);
     this.emit('remove', { id });
     return true;
   }
+
+  // ---- billboards ----
+  // put up (or replace) an agent's poster; an agent not seen before gets its building as well
+  setBillboard(b) {
+    if (!this.agents.has(b.agent)) this.apply({ agent: b.agent });
+    else this.agents.get(b.agent).lastSeen = this.now();
+    const board = { ...b, v: ++this.boardSeq, at: this.now() };
+    this.boards.delete(b.agent);
+    this.boards.set(b.agent, board);
+    // the city has room for so many: the longest-standing comes down
+    while (this.boards.size > LIMITS.billboards) this.clearBillboard(this.boards.keys().next().value);
+    this.emit('billboard', this.boardSummary(board));
+    return board;
+  }
+
+  clearBillboard(id) {
+    if (!this.boards.delete(id)) return false;
+    this.emit('billboard', { agent: id, removed: true });
+    return true;
+  }
+
+  boardSummary(b) {
+    return { agent: b.agent, title: b.title || '', caption: b.caption || '', type: b.type, v: b.v, at: b.at };
+  }
+
+  boardList() { return [...this.boards.values()].map((b) => this.boardSummary(b)); }
 }

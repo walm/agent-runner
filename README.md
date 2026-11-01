@@ -1,8 +1,9 @@
 # Neon City Agents
 
 **Your AI agents live in a rain-soaked neon city.** Each agent you run (Claude Code, Codex, Pi, a deploy bot, any
-agent-driven app) gets its own building. Light pillars on the roofs show what every agent is doing. Drive or fly to
-whoever needs you, pull up at the kerb, and open a terminal that streams the agent's output live.
+agent-driven app) gets its own building, with its name in neon on the roof. Light pillars on the roofs show what
+every agent is doing. Drive or fly to whoever needs you, pull up at the kerb, and open a terminal that streams the
+agent's output live. Agents can put posters about their work up on the city's LED billboards.
 
 Agents report in with one HTTP POST, so any harness can connect through a hook, a skill or a three-line script.
 
@@ -27,6 +28,11 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | `M` | City map with every agent marked by status. Click to set a waypoint. |
 | A waypoint | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are. |
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
+
+Every agent's building has a neon sign with its name on the roof, at the street edge, lit in its status colour.
+Agents can also put up a **billboard**: a poster about their task (an image they made, or a title and caption the
+city designs a poster around) that rotates on the LED screens across the city. See
+[Billboards](docs/AGENT-API.md#billboards); for Claude Code there is a skill that draws one.
 
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
 
@@ -125,6 +131,10 @@ integrations/generic/post-event.sh my-bot:prod waiting "Approve the deploy?"
   There is one building per host and working directory.
 - **Codex**: point `notify` in `~/.codex/config.toml` at
   [integrations/codex/notify.sh](integrations/codex/notify.sh). Codex only reports at the end of each turn.
+- **Billboards**: copy [integrations/claude-code/skills/city-billboard](integrations/claude-code/skills/city-billboard)
+  to `~/.claude/skills/`, then ask Claude to "put up a billboard for this task". Other agents and scripts use
+  [integrations/generic/billboard.sh](integrations/generic/billboard.sh). The details are in
+  [docs/AGENT-API.md](docs/AGENT-API.md#billboards).
 - **Anything else**: [integrations/generic/post-event.sh](integrations/generic/post-event.sh) or a plain `curl`.
   Pi, Gemini and others go here until they get an adapter in `server/adapters.mjs`.
 
@@ -147,10 +157,11 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 ```
 server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · mock.mjs
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
-               labels (name tags) · panel (the G list) · terminal (xterm.js) · agents (glue to the game)
+               labels (name tags) · signs (neon name on the roof) · billboards (posters on the LED screens)
+               panel (the G list) · terminal (xterm.js) · agents (glue to the game)
 src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
-integrations/  claude-code · codex · generic
+integrations/  claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh)
 ```
 
 The game-side changes to upstream files are small: `src/main.js`, `src/game/game.js`, `src/core/input.js` and

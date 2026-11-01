@@ -212,6 +212,23 @@ const ADS = [
   },
 ];
 
+export const AD_SLOTS = ADS.length;
+
+// campaign i, drawn into its tall and its wide cell of the atlas canvas; draw defaults to the built-in campaign
+// (agents' billboards borrow slots: agents/billboards.js). The caller uploads the texture.
+export function paintAd(cv, i, draw = ADS[i]) {
+  const A = cv.width, g = cv.getContext('2d');
+  const pw = A / 8, ph = A / 4, lw = A / 4, lh = A / 8;
+  for (const tall of [true, false]) {
+    const W = tall ? pw : lw, H = tall ? ph : lh;
+    const x = tall ? (i % 8) * pw : (i % 4) * lw, y = tall ? Math.floor(i / 8) * ph : A / 2 + Math.floor(i / 4) * lh;
+    g.save(); g.beginPath(); g.rect(x, y, W, H); g.clip(); g.translate(x, y);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    draw(g, W, H, tall, Math.min(W, H));
+    g.restore();
+  }
+}
+
 // atlas: tall cells (1:2) in the top half, wide cells (2:1) below
 export function drawAdAtlas(small) {
   const A = small ? 2048 : 4096;
@@ -219,16 +236,7 @@ export function drawAdAtlas(small) {
   cv.width = A; cv.height = A;
   const g = cv.getContext('2d');
   g.fillStyle = '#000'; g.fillRect(0, 0, A, A);
-  const pw = A / 8, ph = A / 4, lw = A / 4, lh = A / 8;
-  ADS.forEach((draw, i) => {
-    for (const tall of [true, false]) {
-      const W = tall ? pw : lw, H = tall ? ph : lh;
-      const x = tall ? (i % 8) * pw : (i % 4) * lw, y = tall ? Math.floor(i / 8) * ph : A / 2 + Math.floor(i / 4) * lh;
-      g.save(); g.beginPath(); g.rect(x, y, W, H); g.clip(); g.translate(x, y);
-      draw(g, W, H, tall, Math.min(W, H));
-      g.restore();
-    }
-  });
+  for (let i = 0; i < ADS.length; i++) paintAd(cv, i);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
