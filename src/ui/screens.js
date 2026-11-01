@@ -2,6 +2,7 @@
 import { MAP, toMap, districtLabels } from './citymap.js';
 import { fmtTime, route } from './hud.js';
 import { CITY } from '../city/layout.js';
+import { esc } from '../core/esc.js';
 
 const CONTROLS = [
   ['Thrust / brake', 'W / S'],
@@ -149,7 +150,6 @@ export class Screens {
     const m = this.radio;
     if (!m) return '';
     const s = this.settings, t = m.current, live = m.source?.live;
-    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
     // what plays, whoever picked it (the DJ, while it is on air)
     const srcOn = m.source?.id || s.radioSource;
     const catOn = m.djActive ? m.choice().category || 'all' : s.radioCategory;

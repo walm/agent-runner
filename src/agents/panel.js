@@ -1,8 +1,8 @@
 // The agents list (G): every agent with its harness, status and latest line. DRIVE sets a waypoint to the door,
 // WARP puts the car at the kerb outside. ↑/↓ choose, Enter drives, Esc or G closes.
 import { styleOf } from './visuals.js';
+import { esc } from '../core/esc.js';
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 // the agents that want you first, then the busy ones
 const RANK = { waiting: 0, error: 1, working: 2, done: 3, idle: 4, offline: 5 };
 

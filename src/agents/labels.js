@@ -2,11 +2,11 @@
 // and cheap for the few dozen agents a city holds. Only agents within RANGE and in front of the camera show.
 import * as THREE from 'three/webgpu';
 import { styleOf } from './visuals.js';
+import { esc } from '../core/esc.js';
 
 const RANGE = 380;
 const v = new THREE.Vector3();
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export class AgentLabels {
   constructor(root) {

@@ -9,13 +9,13 @@ import { AgentPanel } from './panel.js';
 import { TerminalView, ago } from './terminal.js';
 import { AgentSigns } from './signs.js';
 import { AgentBillboards } from './billboards.js';
+import { esc } from '../core/esc.js';
 import './agents.css';
 
 const DOCK_R = 7; // how close to the kerb ring counts as arrived
 // in the beam over the roof counts too: within BEAM_R of its axis (wider than the 2.4 m shaft, it is hard to hit
 // in the air), from just under the roof to the top of the beam (visuals.js)
 const BEAM_R = 8, BEAM_H = 140;
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export class AgentLayer {
   // adAtlas: the LED screens' texture (city/adscreens.js), where the agents' billboards go

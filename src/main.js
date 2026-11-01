@@ -2,6 +2,7 @@ import './core/yield.js';
 import * as THREE from 'three/webgpu';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { U, loadTex, loadArray } from './core/shared.js';
+import { esc } from './core/esc.js';
 import { createPost } from './core/post.js';
 import { Governor } from './core/governor.js';
 import { generateCity, CITY } from './city/layout.js';
@@ -231,7 +232,6 @@ async function boot() {
   agents.onTaskEnd = (a) => { if (settings.agentVoice >= 1) voice.say(a.id, a.name, a.last, a.status === 'error', a.status === 'error' ? 'failed' : 'finished'); };
   // the radio (the RADIO menu): NEON FM or the music library, picked by the listener or an agent DJ
   // the HUD takes markup; track names and announcements come from files and agents
-  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const radio = new MusicPlayer(sound, voice, settings, {
     onChange: () => { screens.updateRadio(); showNowPlaying(); },
     onTrack: (t) => { if (t.category !== 'neon fm') hud.toast(esc(`♪ ${t.title}${t.artist ? ` · ${t.artist}` : ''}`.toUpperCase()), 'radio'); },

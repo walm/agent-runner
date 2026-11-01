@@ -3,6 +3,7 @@ import * as THREE from 'three/webgpu';
 import { CITY, districtSeedAt, groundAt } from '../city/layout.js';
 import { SKY_ALT } from '../life/skytraffic.js';
 import { U } from '../core/shared.js';
+import { esc } from '../core/esc.js';
 import { Autopilot, MODES, MODE_NAMES } from './autopilot.js';
 
 const DEG = 180 / Math.PI;
@@ -273,7 +274,7 @@ export class Game {
     else if (a === 'horn') this.sound.horn();
     else if (a === 'radio') {
       const on = this.sound.toggleRadio(), t = this.music?.current;
-      this.hud.toast(on ? `RADIO ON · ${t && t.category !== 'neon fm' ? t.title.toUpperCase() : 'NEON FM 88.1'}` : 'RADIO OFF');
+      this.hud.toast(on ? `RADIO ON · ${t && t.category !== 'neon fm' ? esc(t.title.toUpperCase()) : 'NEON FM 88.1'}` : 'RADIO OFF');
       this.screens.updateRadio();
     }
     else if (a === 'next') { if (this.music && !this.music.next()) this.hud.toast('NEON FM IS LIVE · PICK THE LIBRARY IN RADIO'); }
