@@ -200,6 +200,12 @@ export class Sound {
   // parked (the engine off, as on the title)
   update(dt, s) {
     if (!this.ctx) return;
+    // every automation call leaves an event on its parameter's timeline; at 60 frames a second that is a thousand
+    // a second across these. Twenty times a second is as smooth (the time constants are 60 ms and up)
+    this.acc = (this.acc || 0) + dt;
+    if (this.acc < 0.05) return;
+    dt = this.acc;
+    this.acc = 0;
     const t = this.ctx.currentTime, T = 0.06;
     const above = s.alt > 660 ? Math.min(1, (s.alt - 660) / 200) : 0;
     const rain = (1 - above) * (1 - s.inCloud * 0.6) * (0.25 + 0.75 * this.settings.rain) * (s.covered ? 0.35 : 1);
