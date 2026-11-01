@@ -81,7 +81,11 @@ export class Voice {
   next() {
     if (!this.ready || this.busy || !this.enabled) return;
     const now = performance.now();
-    this.queue = this.queue.filter((q) => now - q.at < (q.radio ? RADIO_WAIT : q.urgent || q.end ? END_WAIT : MAX_WAIT));
+    this.queue = this.queue.filter((q) => {
+      const fresh = now - q.at < (q.radio ? RADIO_WAIT : q.urgent || q.end ? END_WAIT : MAX_WAIT);
+      if (!fresh && (q.urgent || q.end) && !q.radio) console.warn(`voice: dropped "${q.text.slice(0, 60)}" after ${Math.round((now - q.at) / 1000)} s in the queue`);
+      return fresh;
+    });
     if (!this.queue.length) { this.onIdle?.(); return; }
     // no sound until the first key or click has started the game's audio: the lines wait (and age out) rather
     // than being synthesised one after another for a context that cannot play them
@@ -100,6 +104,16 @@ export class Voice {
     this.line = q;
     this.pending = ++this.seq;
     this.worker.postMessage({ type: 'say', id: this.pending, text: q.text, lang: LANG, speed: SPEED });
+    // a line the worker never answers (its GPU lost while the page was in the background, say) must not hold the
+    // queue for good: everything after it would wait, and age out, unsaid
+    const id = this.pending;
+    clearTimeout(this.watch);
+    this.watch = setTimeout(() => {
+      if (!this.busy || this.pending !== id || this.source) return;
+      console.warn(`voice: no audio for "${q.text.slice(0, 60)}" after 30 s; skipping it`);
+      this.busy = false;
+      this.next();
+    }, 30000);
   }
 
   message(m) {
