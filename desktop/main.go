@@ -1,5 +1,5 @@
-// Neon City Agents as a desktop app (macOS for now). The agent server (server/index.mjs, compiled by Bun into
-// resources/<os>-<arch>/neon-city-server by scripts/build.mjs) runs as a helper on 127.0.0.1:5210, where the
+// Agent Runner as a desktop app (macOS for now). The agent server (server/index.mjs, compiled by Bun into
+// resources/<os>-<arch>/agent-runner-server by scripts/build.mjs) runs as a helper on 127.0.0.1:5210, where the
 // harnesses' hooks already post, and serves the game the app ships (Resources/dist). The window shows that page,
 // so the game reaches the server on its own origin, as it does from `npm run dev`.
 //
@@ -57,7 +57,7 @@ func main() {
 	mygo.App.WhenReady(func() {
 		go func() {
 			if err := srv.start(conf.Demo); err != nil {
-				mygo.Dialog.Error("Neon City Agents could not start its agent server", err.Error())
+				mygo.Dialog.Error("Agent Runner could not start its agent server", err.Error())
 				mygo.App.Quit()
 				return
 			}
@@ -87,9 +87,9 @@ func showWindow() {
 		return // still starting: the window opens once the server answers
 	}
 	// a modal dialog here would hold the page's frames (and its boot) until dismissed: the title says it instead
-	title := "Neon City Agents"
+	title := "Agent Runner"
 	if srv.busy {
-		title = fmt.Sprintf("Neon City Agents · port %d in use, agent server on %d", defaultPort, srv.port)
+		title = fmt.Sprintf("Agent Runner · port %d in use, agent server on %d", defaultPort, srv.port)
 		log.Printf("port %d is in use (npm run dev?): the agent server runs on %d; hooks that post to %d reach the other server", defaultPort, srv.port, defaultPort)
 	}
 	win = mygo.NewWindow(mygo.WindowOptions{
@@ -288,8 +288,8 @@ func helper() (*exec.Cmd, string, error) {
 		dist = filepath.Join(res, "..", "..", "dist")
 	}
 	for _, bin := range []string{
-		filepath.Join(res, "neon-city-server"),
-		filepath.Join(res, runtime.GOOS+"-"+runtime.GOARCH, "neon-city-server"),
+		filepath.Join(res, "agent-runner-server"),
+		filepath.Join(res, runtime.GOOS+"-"+runtime.GOARCH, "agent-runner-server"),
 	} {
 		if exists(bin) {
 			return exec.Command(bin), dist, nil

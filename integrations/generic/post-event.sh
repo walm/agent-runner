@@ -1,5 +1,5 @@
 #!/bin/sh
-# Report to Neon City Agents from any script or harness. Needs only curl (7.87+ for --url-query).
+# Report to Agent Runner from any script or harness. Needs only curl (7.87+ for --url-query).
 #   post-event.sh <agent-id> <status> [message]        e.g.  post-event.sh my-bot working "Crawling page 3"
 #   some-command 2>&1 | post-event.sh <agent-id> --stream    (tees output to the agent's terminal, line by line)
 #   post-event.sh <agent-id> --end [message]

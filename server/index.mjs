@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Store, validate, validateBillboard, LIMITS } from './store.mjs';
 import { runMock, BILLBOARDS } from './mock.mjs';
 import { ADAPTERS } from './adapters.mjs';
+import { serveVoiceFile } from './models.mjs';
 
 const PORT = +(process.env.PORT || 5210);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -217,6 +218,8 @@ const server = http.createServer(async (req, res) => {
       req.on('close', () => clients.delete(res));
       return;
     }
+    // the agent voice's model, downloaded once and kept on disk (models.mjs)
+    if (path.startsWith('/api/voice/') && req.method === 'GET') return serveVoiceFile(res, path.slice('/api/voice/'.length));
     if (path.startsWith('/api/')) return send(res, 404, { ok: false, error: 'unknown endpoint' });
     if (req.method === 'GET') return serveStatic(req, res, path);
     send(res, 405, 'method not allowed');

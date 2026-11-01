@@ -1,5 +1,5 @@
 #!/bin/sh
-# Put up an agent's billboard on Neon City Agents' LED screens, or take it down. Needs only curl (7.87+).
+# Put up an agent's billboard on Agent Runner' LED screens, or take it down. Needs only curl (7.87+).
 #   billboard.sh <agent-id> <image-file> [title] [caption]   PNG, JPEG, WebP, GIF or SVG, up to 2 MB
 #   billboard.sh <agent-id> --text <title> [caption]          only words: the city designs the poster
 #   billboard.sh <agent-id> --remove

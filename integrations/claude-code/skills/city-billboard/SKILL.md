@@ -1,11 +1,11 @@
 ---
 name: city-billboard
-description: Design a poster for the task you are working on and put it up on the Neon City Agents billboards (the LED screens in the city where this session shows as a building). Use when the user asks for a billboard, a poster or an ad in the city, or when a task is finished and the user has asked you to post what you did.
+description: Design a poster for the task you are working on and put it up on the Agent Runner billboards (the LED screens in the city where this session shows as a building). Use when the user asks for a billboard, a poster or an ad in the city, or when a task is finished and the user has asked you to post what you did.
 ---
 
-# Put up a billboard in Neon City Agents
+# Put up a billboard in Agent Runner
 
-This session is a building in Neon City Agents, and the city has LED billboards. A poster you post goes up on
+This session is a building in Agent Runner, and the city has LED billboards. A poster you post goes up on
 them, framed with your title, your caption and this session's name.
 
 ## 1. Design the poster as SVG

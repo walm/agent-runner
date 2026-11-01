@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "neon-city-agents-desktop",
+      "name": "agent-runner-desktop",
       "devDependencies": {
         "mygo-cli": "0.7.3",
       },

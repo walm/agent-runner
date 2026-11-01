@@ -1,10 +1,10 @@
 {
-  "name": "neon-city-agents",
+  "name": "agent-runner",
   "private": true,
   "version": "1.0.0",
   "description": "Your AI agents live in a rain-soaked neon city: drive to their buildings and read their terminals. A fork of Neon Zenith (three.js WebGPU + TSL).",
   "license": "MIT",
-  "author": "Neon City Agents contributors; based on Neon Zenith by Bill Chan (https://github.com/billpwchan)",
+  "author": "Agent Runner contributors; based on Neon Zenith by Bill Chan (https://github.com/billpwchan)",
   "keywords": [
     "ai-agents",
     "claude-code",

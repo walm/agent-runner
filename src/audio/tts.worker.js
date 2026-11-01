@@ -3,7 +3,9 @@
 // encoder -> a few denoising steps of the vector estimator -> vocoder, 44.1 kHz mono.
 //
 // The weights (~400 MB, OpenRAIL-M) come from the Hugging Face archive of the open release, pinned to one
-// revision, and are kept in the Cache Storage after the first download. Only the voice style in use is fetched.
+// revision. The agent server keeps them on disk (server/models.mjs: downloaded once, there for every later start);
+// without that server (a static host) they come straight from Hugging Face into the Cache Storage. Only the voice
+// style in use is fetched.
 //
 // in:  { type: 'init', voice }                  out: { type: 'progress', loaded, total } ... { type: 'ready', backend }
 //      { type: 'say', id, text, lang, speed }   out: { type: 'audio', id, pcm (Float32Array), sampleRate }
@@ -17,8 +19,18 @@ const CACHE = 'supertonic-3';
 const STEPS = 6; // denoising steps: the demo's quality slider, 2-16
 
 let sessions = null, cfg = null, indexer = null, style = null;
+let local = false; // the agent server had the files
 
-// a file from the cache, else downloaded (reporting progress) and cached
+const LOCAL = '/api/voice/';
+
+// a file from the agent server, else from the Cache Storage, else downloaded from Hugging Face and cached
+async function fetchModel(path, onBytes) {
+  const r = await fetch(LOCAL + path).catch(() => null);
+  // a static host may answer any path with the game's index.html
+  if (r?.ok && !/text\/html/.test(r.headers.get('content-type') || '')) { local = true; return read(r, onBytes); }
+  return fetchCached(path, onBytes);
+}
+
 async function fetchCached(path, onBytes) {
   const url = `${REPO}/${path}`;
   const cache = await caches.open(CACHE).catch(() => null);
@@ -26,6 +38,13 @@ async function fetchCached(path, onBytes) {
   if (hit) { const b = await hit.arrayBuffer(); onBytes?.(b.byteLength); return b; }
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${path}: HTTP ${r.status}`);
+  const buf = await read(r, onBytes);
+  await cache?.put(url, new Response(buf, { headers: { 'Content-Type': 'application/octet-stream' } })).catch(() => {});
+  return buf;
+}
+
+// a response's body, reporting progress as it arrives
+async function read(r, onBytes) {
   const reader = r.body.getReader();
   const parts = [];
   let n = 0;
@@ -39,7 +58,6 @@ async function fetchCached(path, onBytes) {
   const buf = new Uint8Array(n);
   let o = 0;
   for (const p of parts) { buf.set(p, o); o += p.length; }
-  await cache?.put(url, new Response(buf, { headers: { 'Content-Type': 'application/octet-stream' } })).catch(() => {});
   return buf.buffer;
 }
 
@@ -51,10 +69,12 @@ async function init(voice, prefer) {
     const now = performance.now();
     if (now - last > 200) { last = now; postMessage({ type: 'progress', loaded, total }); }
   };
-  const json = async (p) => JSON.parse(new TextDecoder().decode(await fetchCached(p)));
+  const json = async (p) => JSON.parse(new TextDecoder().decode(await fetchModel(p)));
   [cfg, indexer, style] = await Promise.all([json('onnx/tts.json'), json('onnx/unicode_indexer.json'), json(`voice_styles/${voice}.json`)]);
-  const bufs = Object.fromEntries(await Promise.all(Object.entries(MODELS).map(async ([k, p]) => [k, await fetchCached(p, onBytes)])));
+  const bufs = Object.fromEntries(await Promise.all(Object.entries(MODELS).map(async ([k, p]) => [k, await fetchModel(p, onBytes)])));
   postMessage({ type: 'progress', loaded: total, total });
+  // the copy an earlier version kept in this browser is not needed beside the server's
+  if (local) caches.delete(CACHE).catch(() => {});
   // WebGPU where the worker has it, else WebAssembly on one thread (the page is not cross-origin isolated)
   ort.env.wasm.numThreads = 1;
   let backend = 'webgpu';

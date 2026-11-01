@@ -1,4 +1,4 @@
-module neon-city-agents/desktop
+module agent-runner/desktop
 
 go 1.27.3
 

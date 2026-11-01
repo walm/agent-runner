@@ -50,7 +50,7 @@ export class Screens {
       <div id="title" class="hidden">
         <div class="t-wrap">
           <div class="t-kicker">AGENT CITY · 2077 · RAIN ALL NIGHT</div>
-          <div class="t-title"><span>NEON</span> <span>CITY</span><br><span>AGENTS</span></div>
+          <div class="t-title"><span>AGENT</span><br><span>RUNNER</span></div>
           <div class="t-en">ONE BUILDING PER AGENT</div>
           <div class="t-tag">Every agent has a building. Drive the rain-soaked streets to whoever needs you, pull up at the door and read their terminal.</div>
           <div class="t-menu">
@@ -182,11 +182,11 @@ export class Screens {
     } else if (tab === 'credits') {
       body = `<div class="cred">${CREDITS.map(([name, by, lic, id, use]) => `<a href="https://sketchfab.com/3d-models/${id}" target="_blank" rel="noopener"><span>${name}<small>${use}</small></span><span>${by}<small>${lic}</small></span></a>`).join('')}
         <p>Textures, air-conditioners, crates and bags: Poly Haven, CC0. Distant office facades: ambientCG, CC0. Fonts: Oxanium, JetBrains Mono, Monoton, Tilt Neon, Neonderthaw and Noto Serif TC, under the SIL Open Font License. The models were re-exported and compressed for the web, and the building models sliced and rendered into facades; <a href="${REPO}/blob/main/CREDITS.md" target="_blank" rel="noopener">CREDITS.md</a> has the details. Licences: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, <a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>.</p>
-        <p class="src">Neon City Agents is a fork of Neon Zenith by Bill Chan, open source under the MIT licence: <a href="${REPO}" target="_blank" rel="noopener">github.com/billpwchan/neon-zenith</a> ★</p></div>`;
+        <p class="src">Agent Runner is a fork of Neon Zenith by Bill Chan, open source under the MIT licence: <a href="${REPO}" target="_blank" rel="noopener">github.com/billpwchan/neon-zenith</a> ★</p></div>`;
     } else {
       body = `<div class="ctl">${CONTROLS.map(([a, k]) => `<div><span>${a}</span><span>${k}</span></div>`).join('')}</div>`;
     }
-    this.pauseSheet.innerHTML = `<h2>NEON CITY AGENTS</h2>${tabs}${body}`;
+    this.pauseSheet.innerHTML = `<h2>AGENT RUNNER</h2>${tabs}${body}`;
     this.pauseSheet.querySelectorAll('input[type=range]').forEach((inp) => {
       inp.addEventListener('input', () => {
         this.settings[inp.dataset.k] = +inp.value;
@@ -317,10 +317,10 @@ export class Screens {
   async shareRun(i, t, medal) {
     const r = this.runs.list[i];
     const url = `${SITE}/?run=${i}`;
-    const text = `${r.en} · ${fmtTime(t)}${medal ? ` · ${medal.toUpperCase()}` : ''} in Neon City Agents. Beat it, in your browser:`;
+    const text = `${r.en} · ${fmtTime(t)}${medal ? ` · ${medal.toUpperCase()}` : ''} in Agent Runner. Beat it, in your browser:`;
     const btn = this.results.querySelector('[data-act=share]');
     try {
-      if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: 'Neon City Agents', text, url }); return; }
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: 'Agent Runner', text, url }); return; }
       await navigator.clipboard.writeText(`${text} ${url}`);
       btn.innerHTML = 'LINK COPIED';
     } catch { /* share sheet dismissed or clipboard denied */ }

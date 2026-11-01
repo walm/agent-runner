@@ -59,8 +59,7 @@
   text-shadow: 0 0 2px #fff, 0 0 10px #ff6cf5, 0 0 26px #ff3df2, 0 0 60px rgba(255, 61, 242, 0.55);
   animation: flick 7s infinite steps(1);
 }
-.t-title span.on:nth-child(2) { animation-delay: 2.3s; }
-.t-title span.on:nth-child(4) { animation-delay: 4.1s; animation-duration: 5.3s; }
+.t-title span.on:nth-child(3) { animation-delay: 2.3s; animation-duration: 5.3s; }
 @keyframes flick { 0%, 96%, 100% { opacity: 1; } 96.5% { opacity: 0.35; } 97.5% { opacity: 1; } 98.2% { opacity: 0.5; } }
 .t-en {
   font-family: var(--display); font-weight: 300; font-size: clamp(16px, 2.2vw, 26px); letter-spacing: 0.92em; margin: 22px 0 10px;

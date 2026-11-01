@@ -57,7 +57,7 @@ function loadSettings() {
 
 const ui = document.getElementById('ui');
 ui.insertAdjacentHTML('beforeend', `<div id="fade"></div><div id="loader"><div class="lw">
-  <div class="lt"><b>NEON CITY AGENTS</b></div><div class="bar"><i></i></div><div class="st">BOOTING</div></div></div>`);
+  <div class="lt"><b>AGENT RUNNER</b></div><div class="bar"><i></i></div><div class="st">BOOTING</div></div></div>`);
 const loaderBar = ui.querySelector('#loader .bar i'), loaderSt = ui.querySelector('#loader .st');
 function progress(f, text) {
   loaderBar.style.width = `${Math.round(f * 100)}%`;

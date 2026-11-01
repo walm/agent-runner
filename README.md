@@ -1,4 +1,6 @@
-# Neon City Agents
+# Agent Runner
+
+*Formerly Neon City Agents.*
 
 **Your AI agents live in a rain-soaked neon city.** Each agent you run (Claude Code, Codex, Pi, a deploy bot, any
 agent-driven app) gets its own building, with its name in neon on the roof. Light pillars on the roofs show what
@@ -36,8 +38,10 @@ city designs a poster around) that rotates on the LED screens across the city. S
 
 **Agent voice** (Settings > AGENT VOICE, off by default): the agents read their messages out loud, in
 [Supertonic 3](https://huggingface.co/supertone-oss-archive/supertonic-3)'s voice "Sarah", English, at 1.25×. It runs
-in the browser, in a worker (WebGPU, else WebAssembly). Turning it on downloads the model once (about 400 MB, kept
-in the browser's cache). Tool calls and your own prompts are not read, one line waits per agent, and "needs you"
+in the browser, in a worker (WebGPU, else WebAssembly). Turning it on the first time downloads the model (about
+400 MB) through the agent server, which keeps it on disk in `~/.cache/agent-runner` (set `AGENT_CITY_CACHE` to move
+it), so later starts load it in a second, in the desktop app too. Served from a static host without the agent server,
+the game fetches it from Hugging Face into the browser's cache instead. Tool calls and your own prompts are not read, one line waits per agent, and "needs you"
 goes first. Nothing is spoken until the game's sound has started (a key or a click).
 
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
@@ -58,19 +62,19 @@ Debug: `?play&agent=<id or part of a name>` starts the game parked outside that 
 ## Desktop app (macOS)
 
 `npm run app:build` packages the city as a Mac app with [MyGo](https://mygo.egoist.dev):
-`desktop/build/darwin-arm64/Neon City Agents.app` and a disk image beside it. It needs Go 1.27+ and Bun.
+`desktop/build/darwin-arm64/Agent Runner.app` and a disk image beside it. It needs Go 1.27+ and Bun.
 
 - The app runs the agent server inside it (compiled by Bun into one executable) on `127.0.0.1:5210`, where the
   hooks already post, so Claude Code, Codex and the scripts reach it unchanged. Its window shows the game from that
   server.
 - **Agents** menu: **Demo Agents** turns the mock agents on or off (on at first; the app remembers),
-  **Copy Agent Server URL**, and **Show Server Log** (`~/Library/Logs/Neon City Agents/server.log`).
+  **Copy Agent Server URL**, and **Show Server Log** (`~/Library/Logs/Agent Runner/server.log`).
 - Closing the window keeps the app and its server running, so agents keep reporting; the Dock icon brings the
   city back. Quitting stops the server.
 - When something else holds port 5210 (`npm run dev`, say), the app runs its server on another port and says so
   in its window title. Hooks that post to 5210 then reach the other server.
 - `NCA_DIAG=1` (run the executable in `Contents/MacOS/` from a terminal) logs how far the page got every few
-  seconds to `~/Library/Logs/Neon City Agents/page.log`: the loader, the graphics backend, frames, errors.
+  seconds to `~/Library/Logs/Agent Runner/page.log`: the loader, the graphics backend, frames, errors.
   `NCA_QUERY='?webgl'` adds a query to the page's URL, to try the game's switches.
 - `npm run app:dev` runs it from source (the server with Node, the game from `dist/`).
 - The build is signed ad hoc: it opens on the Mac that built it. For other Macs, set `macos.signingIdentity` and
@@ -185,7 +189,7 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 ## Layout
 
 ```
-server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · mock.mjs
+server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · models.mjs (the voice model's disk cache) · mock.mjs
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
                labels (name tags) · signs (neon name on the roof) · billboards (posters on the LED screens)
                panel (the G list) · terminal (xterm.js) · agents (glue to the game)

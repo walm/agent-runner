@@ -1,5 +1,5 @@
 {
-  "name": "neon-city-agents-desktop",
+  "name": "agent-runner-desktop",
   "private": true,
   "type": "module",
   "scripts": {
