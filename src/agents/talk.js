@@ -179,22 +179,36 @@ export class Talk {
     this.heard = heard.text;
     this.phase = 'sending';
     this.show();
-    const r = await this.say(agent.id, heard.text);
+    const r = await this.say(agent.id, { text: heard.text });
     this.phase = 'idle';
-    if (r.ok && r.typed) this.show({ text: `“${heard.text}” → ${r.label} · ${r.typed.toUpperCase()}`, tone: 'good' });
-    else if (r.ok && r.queued) this.show({ text: `“${heard.text}” → INBOX · ${r.why}`, tone: 'warn', hold: 10000 });
-    else this.show({ text: `“${heard.text}” NOT SENT · ${r.error || 'the server did not answer'}`, tone: 'bad', hold: 10000 });
-    this.onSent?.(r, heard.text);
+    this.result(r, `“${heard.text}”`);
   }
 
-  async say(id, text) {
+  // an option picked in the terminal's list (a click, its number key, the d-pad and A): 1…9, 'yes' or 'no'
+  async pick(agent, p) {
+    if (!agent || this.phase !== 'idle') return;
+    this.phase = 'sending';
+    this.heard = typeof p === 'number' ? `${p}` : p.toUpperCase();
+    this.show();
+    const r = await this.say(agent.id, typeof p === 'number' ? { choose: p } : { answer: p });
+    this.phase = 'idle';
+    this.result(r, typeof p === 'number' ? `OPTION ${p}` : p.toUpperCase());
+  }
+
+  result(r, what) {
+    if (r.ok && r.typed) this.show({ text: `${what} → ${r.label} · ${r.typed.toUpperCase()}`, tone: 'good' });
+    else if (r.ok && r.queued) this.show({ text: `${what} → INBOX · ${r.why}`, tone: 'warn', hold: 10000 });
+    else this.show({ text: `${what} NOT SENT · ${r.error || 'the server did not answer'}`, tone: 'bad', hold: 10000 });
+  }
+
+  async say(id, body) {
     try {
       // the token the page was opened with (?token=…), for a server that wants one
       const token = new URLSearchParams(location.search).get('token');
       const r = await fetch(`${this.api}/agents/${encodeURIComponent(id)}/input`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Agent-Runner': 'input', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
       });
       return await r.json().catch(() => ({ ok: false, error: `${r.status} ${r.statusText}` }));
     } catch (err) { return { ok: false, error: err?.message || String(err) }; }

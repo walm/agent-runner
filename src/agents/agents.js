@@ -67,6 +67,8 @@ export class AgentLayer {
     this.talk = new Talk(API, (st) => this.term.talk(st, this.device()));
     this.talk.language = () => this.game?.settings?.talkLang || 'en';
     this.term.onTalk = (down) => (down ? this.talkDown() : this.talk.release());
+    this.term.onChoices = () => this.talk.show(); // the hint names how to pick
+    this.term.onPick = (p) => { const e = this.entries.get(this.term.id); if (e) this.talk.pick(e.agent, p); };
 
     // keys for our overlays are taken in the capture phase, before the game's own listener sees them
     addEventListener('keydown', (e) => this.key(e), true);
@@ -193,6 +195,14 @@ export class AgentLayer {
       e.stopImmediatePropagation();
       return;
     }
+    // an agent's option by its number, on the top row or the number pad
+    const digit = o === 'terminal' && /^(Digit|Numpad)[1-9]$/.test(e.code) && this.term.hasChoices() ? +e.code.slice(-1) : 0;
+    if (digit) {
+      if (!e.repeat && this.term.opts.some((x) => x.pick === digit)) this.term.onPick?.(digit);
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     if (o === 'terminal' && e.code === 'Space') {
       if (!e.repeat) this.talkDown();
       e.preventDefault();
@@ -313,7 +323,8 @@ export class AgentLayer {
   }
 
   // a gamepad in the terminal (the car is parked meanwhile): either stick scrolls, faster the further it is pushed;
-  // the d-pad steps a line, held to repeat; LB / RB a page; X held talks to the agent; A or B closes. Standard mapping: 0 A, 1 B, 4 LB, 5 RB,
+  // the d-pad steps a line, held to repeat (at a choice it moves through the options, and A picks); LB / RB a page;
+  // X held talks to the agent; A or B closes. Standard mapping: 0 A, 1 B, 4 LB, 5 RB,
   // 12/13 d-pad.
   pad() {
     const now = performance.now(), dt = Math.min(0.1, (now - (this.padT || now)) / 1000);
@@ -330,19 +341,28 @@ export class AgentLayer {
         const n = Math.trunc(this.padScroll);
         if (n) { this.term.scroll(n); this.padScroll -= n; }
       } else this.padScroll = 0;
-      const dir = btn(12) ? -1 : btn(13) ? 1 : 0;
-      if (!dir) this.padRepeat = 0;
-      else if (edge(12) || edge(13) || (this.padRepeat -= dt) <= 0) {
-        this.term.scroll(dir);
-        this.padRepeat = edge(12) || edge(13) ? 0.35 : 0.06;
+      // while the agent waits at a choice the d-pad moves through its options and A picks one; otherwise the
+      // d-pad steps the text and A closes
+      const choosing = this.term.hasChoices();
+      if (choosing) {
+        if (edge(12) || edge(14)) this.term.moveChoice(-1);
+        if (edge(13) || edge(15)) this.term.moveChoice(1);
+        if (edge(0)) this.term.pickChoice();
+      } else {
+        const dir = btn(12) ? -1 : btn(13) ? 1 : 0;
+        if (!dir) this.padRepeat = 0;
+        else if (edge(12) || edge(13) || (this.padRepeat -= dt) <= 0) {
+          this.term.scroll(dir);
+          this.padRepeat = edge(12) || edge(13) ? 0.35 : 0.06;
+        }
       }
       if (edge(4)) this.term.page(-1);
       if (edge(5)) this.term.page(1);
       // X held: push to talk
       if (edge(2)) this.talkDown();
       else if (!btn(2) && prev[`${p.index}:2`]) this.talk.release();
-      const close = edge(0) || edge(1);
-      for (const i of [0, 1, 2, 4, 5, 12, 13]) prev[`${p.index}:${i}`] = btn(i);
+      const close = (edge(0) && !choosing) || edge(1);
+      for (const i of [0, 1, 2, 4, 5, 12, 13, 14, 15]) prev[`${p.index}:${i}`] = btn(i);
       if (close) { this.close(); return; }
     }
   }

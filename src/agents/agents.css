@@ -90,6 +90,12 @@
 #agterm .xterm-viewport { scrollbar-width: thin; scrollbar-color: rgba(150, 225, 255, 0.25) transparent; }
 #agterm .tfoot { display: flex; justify-content: space-between; padding: 7px 16px 9px; border-top: 1px solid rgba(150, 225, 255, 0.08); font-size: 9px; letter-spacing: 0.3em; color: var(--ink-faint); }
 #agterm .live { color: var(--c); }
+/* the options of an agent waiting at a choice: click, number keys, d-pad and A, or say it */
+#agterm .tchoices { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid color-mix(in srgb, var(--c) 40%, transparent); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 10%, transparent), transparent 70%); }
+#agterm .tchoices .q { flex-basis: 100%; font-size: 11px; letter-spacing: 0.12em; color: var(--c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#agterm .tchoices .opt { font: inherit; font-size: 12px; letter-spacing: 0.06em; color: var(--ink); background: rgba(150, 225, 255, 0.06); border: 1px solid rgba(150, 225, 255, 0.25); padding: 7px 12px 6px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#agterm .tchoices .opt b { font-family: var(--mono); font-weight: 600; color: var(--c); margin-right: 8px; }
+#agterm .tchoices .opt:hover, #agterm .tchoices .opt.pad-sel { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); color: #fff; }
 /* talking to the agent (talk.js): the button, what to say or what is happening, the microphone's level */
 #agterm .ttalk { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-top: 1px solid rgba(150, 225, 255, 0.08); font-size: 10px; letter-spacing: 0.2em; color: var(--ink-faint); --t: var(--ink-faint); }
 #agterm .ttalk .mic { padding: 7px 12px 6px; font-size: 10px; flex: none; touch-action: none; user-select: none; -webkit-user-select: none; }
