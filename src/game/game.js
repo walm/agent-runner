@@ -190,10 +190,13 @@ export class Game {
   update(dt) {
     this.clock += dt;
     const k = this.kite;
+    // polled every frame, menu or no menu: a gamepad's buttons are edges the poll detects, so without it Start
+    // could open the menu but never close it (and never start the game from the title)
+    const polled = this.input.poll();
     const actions = this.input.take();
     if (this.state === 'title') {
       this.attract.update(dt);
-      for (const a of actions) if (a === 'confirm') this.startFree();
+      for (const a of actions) if (a === 'confirm' || a === 'start') this.startFree();
       k.syncModel(dt);
       // the car is parked; the rain and the city follow the film's camera (only once a game has started the sound)
       const y = this.camera.position.y;
@@ -206,7 +209,7 @@ export class Game {
     const overlay = this.screens.open;
     if (overlay === 'map') this.screens.drawMap(this.mapState());
 
-    let c = overlay ? ZERO : this.input.poll();
+    let c = overlay ? ZERO : polled;
     if (this.bot && !overlay) c = this.bot.controls(this);
     else if (this.autopilot.on && !overlay && this.state === 'play') {
       // the player's own hands on the controls take the car back
@@ -255,6 +258,7 @@ export class Game {
 
   action(a) {
     const o = this.screens.open;
+    if (a === 'start') a = 'pause'; // the gamepad's Start, in the game
     if (a === 'pause' && (o === 'agents' || o === 'terminal')) this.agents.close();
     else if (a === 'quit') { if (o === 'pause') this.quitToTitle(); }
     else if (a === 'pause') { if (o === 'map') this.screens.closeMap(); else if (o === 'results') this.screens.closeResults(); else this.pauseToggle(); }

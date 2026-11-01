@@ -6,8 +6,9 @@ const KEYS = {
 };
 const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit', KeyP: 'autopilot' };
 const PREVENT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
-// standard gamepad mapping: Y camera, back map, start pause, d-pad up next track, X horn, right stick press autopilot
-const PAD_ACTIONS = [[3, 'camera'], [8, 'map'], [9, 'pause'], [12, 'next'], [2, 'horn'], [11, 'autopilot']];
+// standard gamepad mapping: Y camera, back map, start the menu (or the game, from the title), d-pad up next track,
+// X horn, right stick press autopilot
+const PAD_ACTIONS = [[3, 'camera'], [8, 'map'], [9, 'start'], [12, 'next'], [2, 'horn'], [11, 'autopilot']];
 const NONE = { throttle: 0, steer: 0, lift: 0, boost: false };
 
 // a key pressed while typing in a field (a settings slider, say) belongs to the field, not to the car
