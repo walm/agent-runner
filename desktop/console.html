@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Runner</title>
+<!-- The app's first window: the agent server and where to play. main.go loads it at the server's origin, so the
+     /api calls below are its own, and it reaches Go through the bound Console service (mygo.call). -->
+<style>
+  :root { --bg: #05060d; --panel: rgba(14, 18, 34, 0.72); --line: rgba(150, 225, 255, 0.14); --ink: #e9eefc; --dim: #8f9ab5; --faint: #5a6380;
+    --cyan: #3be8ff; --mag: #ff3df2; --amber: #ffb547; --red: #ff4d6d; --green: #5dffa8;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace; --ui: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 13px/1.5 var(--ui); -webkit-user-select: none; user-select: none; overflow: hidden; }
+  body { background: radial-gradient(120% 60% at 50% -10%, rgba(255, 61, 242, 0.16), transparent 60%), radial-gradient(90% 50% at 100% 110%, rgba(59, 232, 255, 0.12), transparent 60%), var(--bg); display: flex; flex-direction: column; padding: 26px 26px 18px; gap: 18px; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 0.16em; color: #fff4fd; text-shadow: 0 0 2px #fff, 0 0 12px #ff6cf5, 0 0 28px rgba(255, 61, 242, 0.6); }
+  .kicker { font-size: 10px; letter-spacing: 0.42em; color: var(--dim); margin-top: 4px; }
+  .server { border: 1px solid var(--line); background: var(--panel); padding: 12px 14px; display: grid; gap: 6px; }
+  .server .row { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+  .dot.on { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  .dot.off { background: var(--red); box-shadow: 0 0 10px var(--red); }
+  .server b { font-size: 11px; letter-spacing: 0.26em; font-weight: 600; }
+  .url { font-family: var(--mono); font-size: 12px; color: var(--cyan); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; -webkit-user-select: text; user-select: text; }
+  .note { font-size: 11px; color: var(--amber); }
+  button { font: 600 11px var(--ui); letter-spacing: 0.22em; color: var(--ink); background: rgba(10, 14, 28, 0.6); border: 1px solid var(--line); padding: 10px 14px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+  button:hover { border-color: rgba(59, 232, 255, 0.5); background: rgba(59, 232, 255, 0.1); color: #fff; }
+  button.small { padding: 5px 9px; font-size: 9px; }
+  .play { font-size: 15px; letter-spacing: 0.32em; padding: 16px; width: 100%; color: #fff; border-color: var(--mag); background: linear-gradient(90deg, rgba(255, 61, 242, 0.22), rgba(59, 232, 255, 0.12)); box-shadow: 0 0 22px rgba(255, 61, 242, 0.25); }
+  .play:hover { border-color: #fff; background: linear-gradient(90deg, rgba(255, 61, 242, 0.36), rgba(59, 232, 255, 0.2)); }
+  .alt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .hint { font-size: 11px; color: var(--dim); line-height: 1.55; margin: 8px 0 0; }
+  .hint b { color: var(--ink); font-weight: 600; }
+  .agents { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 12px; }
+  .agents header { display: flex; justify-content: space-between; align-items: baseline; font-size: 10px; letter-spacing: 0.3em; color: var(--dim); margin-bottom: 8px; }
+  .agents header .need { color: var(--mag); }
+  .list { overflow-y: auto; flex: 1; display: grid; align-content: start; gap: 2px; }
+  .ag { display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: baseline; padding: 5px 2px; }
+  .ag .dot { width: 7px; height: 7px; transform: translateY(-1px); }
+  .ag .n { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ag .n small { color: var(--faint); font-size: 10px; letter-spacing: 0.16em; margin-left: 6px; }
+  .ag .l { grid-column: 2; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty { font-size: 11px; color: var(--faint); line-height: 1.6; }
+  footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 10px; letter-spacing: 0.2em; color: var(--faint); }
+  footer label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  footer input { accent-color: var(--cyan); }
+</style>
+</head>
+<body>
+  <div>
+    <h1>AGENT RUNNER</h1>
+    <div class="kicker">THE AGENT SERVER IS RUNNING</div>
+  </div>
+
+  <div class="server">
+    <div class="row"><i class="dot" id="state"></i><b id="stateText">STARTING</b></div>
+    <div class="row"><span class="url" id="url">—</span><button class="small" id="copy">COPY</button></div>
+    <div class="note" id="busy" hidden></div>
+  </div>
+
+  <div>
+    <button class="play" id="play">▶&nbsp; PLAY HERE</button>
+    <div class="alt">
+      <button id="chrome">OPEN IN CHROME</button>
+      <button id="browser">OPEN IN BROWSER</button>
+    </div>
+    <p class="hint"><b>VR</b>: open the game in Chrome with a PC VR headset (Quest Link, Air Link or SteamVR) and press ENTER VR. Your agents' hooks post to the address above, wherever you play.</p>
+  </div>
+
+  <div class="agents">
+    <header><span id="count">AGENTS</span><span class="need" id="need"></span></header>
+    <div class="list" id="list"><div class="empty">No agents yet. Connect a harness (see the README), or turn on the demo agents below.</div></div>
+  </div>
+
+  <footer>
+    <label><input type="checkbox" id="demo"> DEMO AGENTS</label>
+    <span id="games"></span>
+    <button class="small" id="log">SERVER LOG</button>
+  </footer>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const call = (m, ...a) => (window.mygo ? window.mygo.call(`Console.${m}`, ...a) : Promise.reject(new Error('no bridge')));
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const COLOR = { working: 'var(--cyan)', waiting: 'var(--mag)', error: 'var(--red)', done: 'var(--green)', idle: 'var(--amber)', offline: 'var(--faint)' };
+  const ORDER = { waiting: 0, error: 1, working: 2, idle: 3, done: 4, offline: 5 };
+
+  $('play').onclick = () => call('Play');
+  $('chrome').onclick = () => call('OpenBrowser', true);
+  $('browser').onclick = () => call('OpenBrowser', false);
+  $('copy').onclick = async () => { await call('CopyURL'); $('copy').textContent = 'COPIED'; setTimeout(() => ($('copy').textContent = 'COPY'), 1400); };
+  $('log').onclick = () => call('ShowLog');
+  $('demo').onchange = (e) => call('SetDemo', e.target.checked);
+
+  async function info() {
+    try {
+      const i = await call('Info');
+      $('url').textContent = i.url;
+      $('demo').checked = i.demo;
+      $('chrome').hidden = !i.chrome;
+      document.querySelector('.alt').style.gridTemplateColumns = i.chrome ? '1fr 1fr' : '1fr';
+      const busy = $('busy');
+      busy.hidden = !i.busy;
+      busy.textContent = i.busy ? `Port ${i.defaultPort} is taken (by npm run dev?), so this server is on ${i.port}: hooks that post to ${i.defaultPort} reach the other one.` : '';
+    } catch { $('url').textContent = location.origin; }
+  }
+
+  // every couple of seconds: the server's health and its agents (a poll, so the console is no game client itself)
+  async function poll() {
+    try {
+      const [h, list] = await Promise.all([fetch('/api/health').then((r) => r.json()), fetch('/api/agents').then((r) => r.json())]);
+      $('state').className = 'dot on';
+      $('stateText').textContent = 'AGENT SERVER ON';
+      const need = list.filter((a) => a.status === 'waiting' || a.status === 'error').length;
+      $('count').textContent = `AGENTS ${list.length}`;
+      $('need').textContent = need ? `${need} NEED${need === 1 ? 'S' : ''} YOU` : '';
+      $('games').textContent = h.clients ? `${h.clients} GAME${h.clients === 1 ? '' : 'S'} OPEN` : 'NO GAME OPEN';
+      if (list.length) {
+        list.sort((a, b) => (ORDER[a.status] ?? 9) - (ORDER[b.status] ?? 9) || b.lastSeen - a.lastSeen);
+        $('list').innerHTML = list.map((a) => `<div class="ag"><i class="dot" style="background:${COLOR[a.status] || 'var(--faint)'};box-shadow:0 0 8px ${COLOR[a.status] || 'transparent'}"></i>
+          <div class="n">${esc(a.name)}<small>${esc(a.harness || '').toUpperCase()} · ${esc(a.status).toUpperCase()}</small></div><div class="l">${esc(a.last || '')}</div></div>`).join('');
+      } else $('list').innerHTML = '<div class="empty">No agents yet. Connect a harness (see the README), or turn on the demo agents below.</div>';
+    } catch {
+      $('state').className = 'dot off';
+      $('stateText').textContent = 'AGENT SERVER NOT ANSWERING';
+    }
+  }
+
+  info();
+  poll();
+  setInterval(poll, 2000);
+</script>
+</body>
+</html>

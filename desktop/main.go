@@ -3,11 +3,18 @@
 // harnesses' hooks already post, and serves the game the app ships (Resources/dist). The window shows that page,
 // so the game reaches the server on its own origin, as it does from `npm run dev`.
 //
+// The window opens small, as the server's console (console.html): the server's address, its agents, and where to
+// play: PLAY HERE grows the window to the size the game had last time and loads the game in it; OPEN IN CHROME
+// and OPEN IN BROWSER play it there instead (Chrome for PC VR), and the window stays the console. View > Server
+// Console goes back to it.
+//
 // Closing the window keeps the app, and so the server, running, as macOS apps do: agents keep reporting, and a
 // click on the Dock icon brings the city back.
 package main
 
 import (
+	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -38,13 +46,24 @@ type server struct {
 
 // settings the app keeps between launches
 type settings struct {
-	Demo bool `json:"demo"` // run the mock agents
+	Demo bool             `json:"demo"`           // run the mock agents
+	Game *mygo.Rectangle `json:"game,omitempty"` // the window's bounds when it last showed the game
 }
 
+//go:embed console.html
+var consoleHTML string
+
 var (
-	srv  = &server{}
-	conf = settings{Demo: true}
-	win  *mygo.Window
+	srv      = &server{}
+	conf     = settings{Demo: true}
+	win      *mygo.Window
+	playing  bool // the window shows the game, not the console
+	demoItem *mygo.MenuItem
+)
+
+const (
+	consoleW, consoleH = 460, 680
+	gameW, gameH       = 1440, 900
 )
 
 func main() {
@@ -52,6 +71,7 @@ func main() {
 		return // the running instance comes to the front
 	}
 	loadSettings()
+	mygo.Bind(&Console{})
 	mygo.App.SetMenu(menu())
 	mygo.App.OnSecondInstance(func(args []string, workingDir string) { showWindow() })
 	mygo.App.WhenReady(func() {
@@ -92,22 +112,144 @@ func showWindow() {
 		title = fmt.Sprintf("Agent Runner · port %d in use, agent server on %d", defaultPort, srv.port)
 		log.Printf("port %d is in use (npm run dev?): the agent server runs on %d; hooks that post to %d reach the other server", defaultPort, srv.port, defaultPort)
 	}
+	playing = false
 	win = mygo.NewWindow(mygo.WindowOptions{
 		Title:           title,
-		Width:           1440,
-		Height:          900,
-		MinWidth:        960,
-		MinHeight:       600,
-		BackgroundColor: "#03040a",
-		StateKey:        "main",
-		URL:             srv.url() + os.Getenv("NCA_QUERY"), // NCA_QUERY: e.g. ?webgl, to try the game's switches
-		// the engine and the radio start on the first key or click anyway; this keeps a reload from muting them
-		Page: mygo.PageOptions{Autoplay: mygo.AutoplayAllow, PreloadScript: catchErrors},
+		Width:           consoleW,
+		Height:          consoleH,
+		MinWidth:        400,
+		MinHeight:       560,
+		BackgroundColor: "#05060d",
+		Page: mygo.PageOptions{
+			// the engine and the radio start on the first key or click anyway; this keeps a reload from muting them
+			Autoplay:      mygo.AutoplayAllow,
+			PreloadScript: catchErrors,
+			// the console, at the server's origin, calls Console's methods (it is the app's own page; so is the game)
+			TrustedOrigins: []string{strings.TrimSuffix(srv.url(), "/")},
+		},
 	})
+	win.Page().LoadHTML(consoleHTML, srv.url())
 	// the page's <title> would replace the note
 	win.Page().OnPageTitleUpdated(func(e *mygo.TitleEvent) { e.PreventDefault() })
+	// the game's size is kept for next time
+	win.OnClose(func(*mygo.CloseEvent) { keepGameBounds() })
 	if os.Getenv("NCA_DIAG") != "" {
 		go diagnose(win)
+	}
+	// NCA_PLAY=1: straight into the game, as PLAY HERE does
+	if os.Getenv("NCA_PLAY") != "" {
+		play()
+	}
+}
+
+// ---- the console and the game ----
+
+// Console is what console.html calls (mygo.call("Console.Play") and so on).
+type Console struct{}
+
+// ConsoleInfo is the server as the console shows it.
+type ConsoleInfo struct {
+	URL         string `json:"url"`
+	Port        int    `json:"port"`
+	DefaultPort int    `json:"defaultPort"`
+	Busy        bool   `json:"busy"` // defaultPort was taken, so the server is on Port
+	Demo        bool   `json:"demo"`
+	Chrome      bool   `json:"chrome"` // Google Chrome is installed
+}
+
+// Info returns the server's address and state.
+func (Console) Info() ConsoleInfo {
+	return ConsoleInfo{URL: strings.TrimSuffix(srv.url(), "/"), Port: srv.port, DefaultPort: defaultPort, Busy: srv.busy, Demo: conf.Demo, Chrome: chromeApp() != ""}
+}
+
+// Play grows the window to the game's size and loads the game in it.
+func (Console) Play(ctx context.Context) { play() }
+
+// OpenBrowser opens the game in Chrome (chrome), or in the default browser.
+func (Console) OpenBrowser(chrome bool) error {
+	url := srv.url() + os.Getenv("NCA_QUERY")
+	if app := chromeApp(); chrome && app != "" {
+		return exec.Command("open", "-a", app, url).Run()
+	}
+	return mygo.Shell.OpenExternal(url)
+}
+
+// CopyURL puts the server's address on the clipboard, for a harness's hooks.
+func (Console) CopyURL() { mygo.Clipboard.WriteText(strings.TrimSuffix(srv.url(), "/")) }
+
+// SetDemo turns the demo agents on or off; the server restarts with or without them.
+func (Console) SetDemo(on bool) error { return setDemo(on) }
+
+// ShowLog opens the server's log.
+func (Console) ShowLog() { showLog() }
+
+func chromeApp() string {
+	for _, p := range []string{"/Applications/Google Chrome.app", filepath.Join(os.Getenv("HOME"), "Applications", "Google Chrome.app")} {
+		if exists(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+// play: the window at the size the game had last (or a default, around where the console is), with the game in it
+func play() {
+	if win == nil || win.IsDestroyed() {
+		showWindow()
+	}
+	if playing {
+		win.Focus()
+		return
+	}
+	playing = true
+	b := win.Bounds()
+	r := mygo.Rectangle{X: b.X + b.Width/2 - gameW/2, Y: b.Y + b.Height/2 - gameH/2, Width: gameW, Height: gameH}
+	if conf.Game != nil && conf.Game.Width >= 960 && conf.Game.Height >= 600 {
+		r = *conf.Game
+	}
+	r.X, r.Y = max(r.X, 0), max(r.Y, 0)
+	win.SetMinimumSize(960, 600)
+	win.SetBounds(r)
+	_ = win.Page().LoadURL(srv.url() + os.Getenv("NCA_QUERY")) // NCA_QUERY: e.g. ?webgl, to try the game's switches
+}
+
+// back to the console: the game's size kept, the window small again around the same middle
+func showConsole() {
+	if win == nil || win.IsDestroyed() {
+		showWindow()
+		return
+	}
+	if !playing {
+		return
+	}
+	keepGameBounds()
+	playing = false
+	b := win.Bounds()
+	win.SetMinimumSize(400, 560)
+	win.SetBounds(mygo.Rectangle{X: b.X + b.Width/2 - consoleW/2, Y: b.Y + b.Height/2 - consoleH/2, Width: consoleW, Height: consoleH})
+	win.Page().LoadHTML(consoleHTML, srv.url())
+}
+
+func keepGameBounds() {
+	if !playing || win == nil || win.IsDestroyed() || win.IsFullScreen() {
+		return
+	}
+	b := win.Bounds()
+	conf.Game = &b
+	saveSettings()
+}
+
+func setDemo(on bool) error {
+	conf.Demo = on
+	saveSettings()
+	demoItem.SetChecked(on)
+	// the page's feed reconnects by itself and takes the new server's snapshot
+	return srv.restart(on)
+}
+
+func showLog() {
+	if dir, err := mygo.App.Path(mygo.PathLogs); err == nil {
+		_ = mygo.Shell.OpenPath(filepath.Join(dir, "server.log"))
 	}
 }
 
@@ -137,7 +279,7 @@ func diagnose(w *mygo.Window) {
 		return
 	}
 	defer f.Close()
-	const probe = `JSON.stringify({ loader: document.querySelector('#loader .st')?.textContent, bar: document.querySelector('#loader .bar i')?.style.width,
+	const probe = `JSON.stringify({ console: !!document.getElementById('play'), bridge: !!window.mygo, url: document.getElementById('url')?.textContent, demo: document.getElementById('demo')?.checked, agents: document.getElementById('count')?.textContent, size: innerWidth + 'x' + innerHeight, loader: document.querySelector('#loader .st')?.textContent, bar: document.querySelector('#loader .bar i')?.style.width,
 		err: document.querySelector('#loader .err')?.textContent, boot: window.__nzBoot, ready: !!window.__nz?.ready, gpu: !!navigator.gpu,
 		visible: document.visibilityState, focus: document.hasFocus(), frames: window.__ncaFrames, ticks: window.__ncaTicks, errors: window.__ncaErrors })`
 	for i := 0; i < 60 && !w.IsDestroyed(); i++ {
@@ -148,35 +290,33 @@ func diagnose(w *mygo.Window) {
 }
 
 func menu() *mygo.Menu {
+	demoItem = &mygo.MenuItem{Label: "Demo Agents", Type: mygo.MenuItemCheckbox, Checked: conf.Demo, Click: func(item *mygo.MenuItem, _ *mygo.Window) {
+		go func() {
+			if err := setDemo(item.Checked); err != nil {
+				mygo.Dialog.Error("The agent server did not restart", err.Error())
+			}
+		}()
+	}}
 	return mygo.NewMenu([]*mygo.MenuItem{
 		{Role: mygo.RoleAppMenu},
 		{Role: mygo.RoleEditMenu},
 		{Label: "View", Submenu: []*mygo.MenuItem{
+			{Label: "Server Console", Accelerator: "CmdOrCtrl+1", Click: func(*mygo.MenuItem, *mygo.Window) { showConsole() }},
+			{Label: "Play Here", Accelerator: "CmdOrCtrl+2", Click: func(*mygo.MenuItem, *mygo.Window) { play() }},
+			{Label: "Open in Browser", Click: func(*mygo.MenuItem, *mygo.Window) { _ = Console{}.OpenBrowser(true) }},
+			mygo.Separator(),
 			{Role: mygo.RoleReload},
 			mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen},
 			{Role: mygo.RoleToggleDevTools},
 		}},
 		{Label: "Agents", Submenu: []*mygo.MenuItem{
-			{Label: "Demo Agents", Type: mygo.MenuItemCheckbox, Checked: conf.Demo, Click: func(item *mygo.MenuItem, _ *mygo.Window) {
-				conf.Demo = item.Checked
-				saveSettings()
-				// the page's feed reconnects by itself and takes the new server's snapshot
-				go func() {
-					if err := srv.restart(conf.Demo); err != nil {
-						mygo.Dialog.Error("The agent server did not restart", err.Error())
-					}
-				}()
-			}},
+			demoItem,
 			mygo.Separator(),
 			{Label: "Copy Agent Server URL", Click: func(*mygo.MenuItem, *mygo.Window) {
 				mygo.Clipboard.WriteText(fmt.Sprintf("http://127.0.0.1:%d", srv.port))
 			}},
-			{Label: "Show Server Log", Click: func(*mygo.MenuItem, *mygo.Window) {
-				if dir, err := mygo.App.Path(mygo.PathLogs); err == nil {
-					_ = mygo.Shell.OpenPath(filepath.Join(dir, "server.log"))
-				}
-			}},
+			{Label: "Show Server Log", Click: func(*mygo.MenuItem, *mygo.Window) { showLog() }},
 		}},
 		{Role: mygo.RoleWindowMenu},
 	})

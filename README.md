@@ -110,17 +110,22 @@ Debug: `?play&agent=<id or part of a name>` starts the game parked outside that 
 `desktop/build/darwin-arm64/Agent Runner.app` and a disk image beside it. It needs Go 1.27+ and Bun.
 
 - The app runs the agent server inside it (compiled by Bun into one executable) on `127.0.0.1:5210`, where the
-  hooks already post, so Claude Code, Codex and the scripts reach it unchanged. Its window shows the game from that
-  server.
+  hooks already post, so Claude Code, Codex and the scripts reach it unchanged.
+- It opens as a small **server console**: the server's address (with COPY, for a harness's hooks), its agents live,
+  and where to play. **PLAY HERE** grows the window to the size the game had last time and loads the game in it.
+  **OPEN IN CHROME** and **OPEN IN BROWSER** play it there instead, with the window staying the console: Chrome is
+  the way to VR with a PC headset (Quest Link, Air Link, SteamVR). **View > Server Console** (`⌘1`) goes back,
+  **View > Play Here** (`⌘2`) forward.
 - **Agents** menu: **Demo Agents** turns the mock agents on or off (on at first; the app remembers),
   **Copy Agent Server URL**, and **Show Server Log** (`~/Library/Logs/Agent Runner/server.log`).
 - Closing the window keeps the app and its server running, so agents keep reporting; the Dock icon brings the
-  city back. Quitting stops the server.
+  console back. Quitting stops the server.
 - When something else holds port 5210 (`npm run dev`, say), the app runs its server on another port and says so
-  in its window title. Hooks that post to 5210 then reach the other server.
+  in its window title and the console. Hooks that post to 5210 then reach the other server.
 - `NCA_DIAG=1` (run the executable in `Contents/MacOS/` from a terminal) logs how far the page got every few
   seconds to `~/Library/Logs/Agent Runner/page.log`: the loader, the graphics backend, frames, errors.
-  `NCA_QUERY='?webgl'` adds a query to the page's URL, to try the game's switches.
+  `NCA_QUERY='?webgl'` adds a query to the game's URL, to try the game's switches, and `NCA_PLAY=1` starts
+  straight in the game.
 - `npm run app:dev` runs it from source (the server with Node, the game from `dist/`).
 - The build is signed ad hoc: it opens on the Mac that built it. For other Macs, set `macos.signingIdentity` and
   `macos.notarize` in `desktop/mygo.config.ts` ([MyGo's distribution docs](https://mygo.egoist.dev/docs/distribution)).

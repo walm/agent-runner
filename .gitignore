@@ -28,3 +28,5 @@ dist/
 /desktop/build/
 /desktop/.mygo/
 /desktop/resources/darwin-*/
+# mygo's typed client for the bound Console, written on every build (console.html calls mygo.call itself)
+/desktop/mygo.ts
