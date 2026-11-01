@@ -48,7 +48,7 @@ import { Nav } from './game/nav.js';
 import { NavVisuals } from './game/navvis.js';
 
 const params = new URLSearchParams(location.search);
-const WARM_MS = 20000; // the longest the boot waits for its shader warm-up
+const WARM_STALL_MS = 8000; // the boot stops waiting for its shader warm-up once nothing has compiled for this long
 
 const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
 function loadSettings() {
@@ -317,20 +317,31 @@ async function boot() {
     // Measured with renderer._renderContexts; if the post chain changes, so does this number.
     const prevTarget = renderer.getRenderTarget();
     const contexts = renderer._renderContexts, getContext = contexts.get;
-    const jobs = [];
+    const jobs = [], done = [0, 0, 0], total = [1, 1, 1];
+    let moved = performance.now();
     for (const [target, cam, depth] of [[post.scenePass.renderTarget, camera, 2], [ground.reflRT, ground.mirrorCam, 0], [probe.rt, probe.cam.children[0], 0]]) {
       renderer.setRenderTarget(target);
       contexts.get = (rt, mrt) => getContext.call(contexts, rt, mrt, depth);
-      jobs.push(renderer.compileAsync(scene, cam));
+      const i = jobs.length;
+      jobs.push(renderer.compileAsync(scene, cam, null, (e) => {
+        done[i] = e.loaded; total[i] = e.total; moved = performance.now();
+        const f = (done[0] + done[1] + done[2]) / (total[0] + total[1] + total[2]);
+        loaderBar.style.width = `${Math.round((0.75 + 0.2 * f) * 100)}%`;
+        loaderSt.textContent = `COMPILING SHADERS ${Math.round(f * 100)}%`;
+      }));
       contexts.get = getContext;
     }
     renderer.setRenderTarget(prevTarget);
-    // a safety net (WebKit took over a minute here before core/yield.js; it now takes ~6.5 s, Chrome ~3.3 s): past
-    // WARM_MS the boot goes on, and whatever is left compiles the first time it is drawn
+    // Chrome takes ~3.3 s, WebKit ~7–10 s, and a minute on its first run, when Metal compiles every shader cold. As
+    // long as pipelines keep finishing the wait goes on: cut short, the rest compiled in one frozen first frame. A
+    // safety net all the same: should nothing finish for WARM_STALL_MS, the boot goes on without the rest.
     const t0 = performance.now();
-    const settled = await Promise.race([Promise.all(jobs).then(() => true), new Promise((r) => setTimeout(() => r(false), WARM_MS))]);
+    const settled = await new Promise((resolve) => {
+      const watch = setInterval(() => { if (performance.now() - moved > WARM_STALL_MS) { clearInterval(watch); resolve(false); } }, 500);
+      Promise.all(jobs).then(() => { clearInterval(watch); resolve(true); });
+    });
     window.__nzBoot.warmMs = Math.round(performance.now() - t0);
-    if (!settled) console.warn(`warm-up: pipelines still compiling after ${WARM_MS / 1000} s; going on without them`);
+    if (!settled) console.warn(`warm-up: nothing compiled for ${WARM_STALL_MS / 1000} s; going on without the rest`);
     await progress(0.95, 'IGNITION');
     ground.updateReflection(renderer, scene, camera, true);
     post.render();
