@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { intent, choiceOf, clean } from '../src/agents/intent.js';
 import { claudeCode, codex } from './adapters.mjs';
 import { markdown, visible } from './markdown.mjs';
+import { wrapLine, wrapChunk } from '../src/agents/wrap.js';
 
 const MENU = { status: 'waiting', prompt: 'menu' };
 const keys = (said, at) => intent(said, at).keys;
@@ -119,4 +120,18 @@ test('markdown for the terminal', () => {
   assert.deepEqual(m, ['Title', '☑ done', '• item', '1. first', '▌ quoted', '─'.repeat(40), '┌ js', '│ const a = **b**;', 'see docs (http://x)']);
   assert.equal(visible(markdown('**bold** and `code` and *it* and ~~no~~')[0]), 'bold and code and it and no'.length);
   assert.equal(plain(markdown('snake_case_name stays and 2*3*4 too'))[0], 'snake_case_name stays and 2*3*4 too');
+});
+
+test('the terminal breaks long lines at spaces', () => {
+  const rows = (s) => s.replace(/\x1b\[[0-9;]*m/g, '').split('\r\n');
+  const r = rows(wrapLine('\x1b[1m⏺\x1b[0m one two three four five six seven eight nine ten', 20));
+  assert.ok(r.every((l) => l.length <= 20));
+  assert.ok(r.slice(1).every((l) => l.startsWith('  ')), 'under the reply, not under the marker');
+  assert.ok(r.every((l) => !/\S$/.test(l) || l.trim().split(' ').every((w) => 'one two three four five six seven eight nine ten ⏺'.split(' ').includes(w))), 'no word is cut');
+  assert.equal(wrapLine('short', 20), 'short');
+  assert.equal(wrapLine('│ a table row that is much too long for the width │', 20).includes('\r\n'), false);
+  assert.equal(wrapLine('\x1b[2K redraw line that is long enough to need a break', 20).includes('\r\n'), false);
+  const st = { open: false };
+  assert.equal(wrapChunk('a line that is long enough to wrap here\r\nopen end that is long enough', 20, st).split('\r\n').pop(), 'open end that is long enough');
+  assert.equal(st.open, true);
 });

@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { styleOf } from './visuals.js';
 import { esc } from '../core/esc.js';
+import { wrapChunk } from './wrap.js';
 
 
 // shared with the VR panel, which draws the same buffer into a canvas
@@ -148,8 +149,19 @@ export class TerminalView {
 
   fit() {
     if (!this.term || !this.id) return;
-    if (this.fixed) { this.term.resize(...this.fixed); return; }
-    try { this.fitter.fit(); } catch {}
+    if (this.fixed) this.term.resize(...this.fixed);
+    else try { this.fitter.fit(); } catch {}
+    // the lines were broken for another width: write them again (a moment later, as a resize comes in bursts)
+    if (this.wrapCols && this.term.cols !== this.wrapCols && !this.pending) {
+      clearTimeout(this.rewrap);
+      this.rewrap = setTimeout(() => { if (this.id && this.term.cols !== this.wrapCols) this.load(); }, 150);
+    }
+  }
+
+  // output as it goes into xterm: long lines broken at spaces for the terminal's width (wrap.js)
+  write(text) {
+    this.wrapCols = this.term.cols;
+    this.term.write(wrapChunk(text, this.term.cols, this.wrapState));
   }
 
   async open(agent) {
@@ -171,7 +183,8 @@ export class TerminalView {
     const out = await this.feed.output(id);
     if (id !== this.id) return;
     this.term.reset();
-    this.term.write(out.text || '\x1b[90m(no output yet)\x1b[0m\r\n');
+    this.wrapState = { open: false };
+    this.write(out.text || '\x1b[90m(no output yet)\x1b[0m\r\n');
     this.have = out.seq;
     const queued = this.pending;
     this.pending = null;
@@ -184,7 +197,7 @@ export class TerminalView {
     if (seq <= this.have) return; // already in the buffer we fetched
     if (seq - text.length > this.have) { this.load(); return; } // missed some: start over from the server's copy
     this.have = seq;
-    this.term.write(text);
+    this.write(text);
     this.q('.live').classList.remove('blink');
     void this.q('.live').offsetWidth;
     this.q('.live').classList.add('blink');
