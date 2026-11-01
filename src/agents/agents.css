@@ -84,7 +84,10 @@
 #agterm .tmeta { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 9px 16px; border-bottom: 1px solid rgba(150, 225, 255, 0.08); font-family: var(--mono); font-size: 11px; color: var(--ink); }
 #agterm .tmeta span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #agterm .tmeta i { font-style: normal; font-family: var(--display); font-size: 9px; letter-spacing: 0.3em; color: var(--ink-faint); margin-right: 8px; }
-#agterm .tbody { flex: 1; min-height: 0; padding: 8px 4px 4px 12px; position: relative; }
+/* the padding sits on xterm's own element, which the fit addon takes off (it measures this box with its padding
+   in): the text then stops short of the scrollbar, which macOS draws over the text */
+#agterm .tbody { flex: 1; min-height: 0; padding: 0; position: relative; }
+#agterm .tbody .xterm { padding: 8px 18px 4px 12px; }
 #agterm .tbody::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px); }
 #agterm .xterm { height: 100%; }
 #agterm .xterm-viewport { scrollbar-width: thin; scrollbar-color: rgba(150, 225, 255, 0.25) transparent; }
