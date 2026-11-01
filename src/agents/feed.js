@@ -14,6 +14,9 @@ export class AgentFeed {
     this.boards = new Map(); // agent id -> { agent, title, caption, type, v, at }: the agents' billboards
     this.onBoard = null; // (board) => void, put up or replaced
     this.onBoardRemove = null; // (agent id) => void
+    this.onRadio = null; // ({ dj, category, track }) => void: the radio's DJ and what it picked (server/music.mjs)
+    this.onAnnounce = null; // ({ id, text, from, dj, when }) => void: a DJ's announcement
+    this.onSkip = null; // () => void: the DJ skipped the track
     this.outputSubs = new Map(); // id -> Set(fn(text, seq))
     this.retry = 1000;
     this.lastMsg = 0;
@@ -79,6 +82,9 @@ export class AgentFeed {
       this.boards.set(b.agent, b);
       this.onBoard?.(b);
     });
+    es.addEventListener('radio', (e) => this.onRadio?.(JSON.parse(e.data)));
+    es.addEventListener('radio-announce', (e) => this.onAnnounce?.(JSON.parse(e.data)));
+    es.addEventListener('radio-skip', () => this.onSkip?.());
     es.addEventListener('output', (e) => {
       const { id, text, seq } = JSON.parse(e.data);
       const subs = this.outputSubs.get(id);

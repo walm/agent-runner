@@ -231,7 +231,12 @@ export class Game {
     else if (a === 'camera') this.rig.cycle();
     else if (a === 'reset') this.reset();
     else if (a === 'horn') this.sound.horn();
-    else if (a === 'radio') { const on = this.sound.toggleRadio(); this.hud.toast(on ? 'RADIO ON · NEON FM 88.1' : 'RADIO OFF'); }
+    else if (a === 'radio') {
+      const on = this.sound.toggleRadio(), t = this.music?.current;
+      this.hud.toast(on ? `RADIO ON · ${t && t.category !== 'neon fm' ? t.title.toUpperCase() : 'NEON FM 88.1'}` : 'RADIO OFF');
+      this.screens.updateRadio();
+    }
+    else if (a === 'next') { if (this.music && !this.music.next()) this.hud.toast('NEON FM IS LIVE · PICK THE LIBRARY IN RADIO'); }
     else if (a === 'confirm' && this.nearRun !== null && this.nearRun !== undefined && !this.run) this.startRun(this.nearRun);
     else if (a === 'confirm' && this.nearAgent && !this.run) this.agents.openTerminal(this.nearAgent.agent.id);
   }
@@ -292,6 +297,7 @@ export class Game {
     if (!force && this.clock - this.lastRadio < 30) return;
     this.lastRadio = this.clock;
     this.hud.radio(line[0], line[1]);
+    this.onRadioLine?.(line[0], line[1]); // NEON FM's own chatter: the radio voice reads it
   }
 
   updateWorldFlags() {

@@ -42,6 +42,7 @@ export class Hud {
         <div class="h-toast"></div>
         <div class="h-count hidden"></div>
         <div class="h-radio"></div>
+        <div class="h-np hidden"><i class="eq"><b></b><b></b><b></b><b></b></i><div><small></small><span class="t"></span><span class="a"></span></div></div>
         <div class="h-hints"></div>
         <div class="h-prompt hidden"></div>
       </div>`);
@@ -67,6 +68,7 @@ export class Hud {
     this.toasts = q('.h-toast');
     this.count = q('.h-count');
     this.radioEl = q('.h-radio');
+    this.np = q('.h-np');
     this.hitEl = q('.h-hit');
     this.hints = q('.h-hints');
     this.promptEl = q('.h-prompt');
@@ -102,6 +104,17 @@ export class Hud {
     while (this.toasts.children.length > 3) this.toasts.firstChild.remove();
     setTimeout(() => d.remove(), 2900);
   }
+
+  // the radio, lower right: what plays, and ON AIR while its voice speaks. np: { on, label, title, artist } (text)
+  nowPlaying(np) {
+    this.np.classList.toggle('hidden', !np.on);
+    if (!np.on) return;
+    this.np.querySelector('small').textContent = np.label;
+    this.np.querySelector('.t').textContent = np.title;
+    this.np.querySelector('.a').textContent = np.artist;
+  }
+
+  onAir(on) { this.np.classList.toggle('air', on); }
 
   radio(who, en) {
     this.onToast?.(`${who} · ${en}`, 'radio');

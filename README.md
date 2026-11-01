@@ -37,13 +37,37 @@ Agents can also put up a **billboard**: a poster about their task (an image they
 city designs a poster around) that rotates on the LED screens across the city. See
 [Billboards](docs/AGENT-API.md#billboards); for Claude Code there is a skill that draws one.
 
-**Agent voice** (Settings > AGENT VOICE, off by default): the agents read their messages out loud, in
-[Supertonic 3](https://huggingface.co/supertone-oss-archive/supertonic-3)'s voice "Sarah", English, at 1.25×. It runs
+**Voice** (Settings > VOICE, off by default): text read out loud in
+[Supertonic 3](https://huggingface.co/supertone-oss-archive/supertonic-3)'s voice "Sarah", English, at 1.25×. VOICE
+loads it; what it reads is up to two settings under it. AGENT VOICE reads when an agent's task finishes or fails
+("infra finished: …"), or every message line, or nothing. RADIO VOICE reads the radio: the DJ's announcements and
+NEON FM's own chatter. It runs
 in the browser, in a worker (WebGPU, else WebAssembly). Turning it on the first time downloads the model (about
 400 MB) through the agent server, which keeps it on disk in `~/.cache/agent-runner` (set `AGENT_CITY_CACHE` to move
 it), so later starts load it in a second, in the desktop app too. Served from a static host without the agent server,
-the game fetches it from Hugging Face into the browser's cache instead. Tool calls and your own prompts are not read, one line waits per agent, and "needs you"
-goes first. Nothing is spoken until the game's sound has started (a key or a click).
+the game fetches it from Hugging Face into the browser's cache instead. Tool calls and your own prompts are not
+read, one line waits per agent, and the radio goes first. Nothing is spoken until the game's sound has started (a
+key or a click).
+
+**Radio** (the RADIO menu; `B` on and off, `N` the next track): NEON FM, the city's own synthesised score that
+follows your speed and height, or the **music library**: eight CC0 synthwave, cyberpunk and ambient tracks (the
+agent server downloads each the first time it plays and keeps it in `~/.cache/agent-runner`), plus your own files
+in `~/Music/Agent Runner`, a folder per category. Spotify, YouTube Music and Apple Music are listed as coming: the
+player in [src/audio/music.js](src/audio/music.js) takes sources behind one interface, ready for them.
+
+An agent can be the radio's **DJ**: pick the music by category and put announcements on the air between tracks
+or over them, read out in the agent voice. A summary of a Slack channel, the pull requests waiting for you, a
+deploy that finished: what it says is up to you. See [The radio](docs/AGENT-API.md#the-radio),
+[integrations/generic/radio.sh](integrations/generic/radio.sh), and two example DJs in
+[integrations/radio](integrations/radio). AGENT DJ in the menu turns it off, and your own picks win until the DJ
+picks again. The lower right corner of the HUD shows what plays, and ON AIR while the radio speaks.
+
+To hear a DJ before you set one up: `npm run dev` has a demo DJ with the mock agents, and `npm run radio:demo`
+puts the same show on the air of any running server (the desktop app's too): made-up news from GitHub, Slack, CI
+and the calendar every 45 seconds, with music picked to go with it.
+
+**Volume**: Settings has MASTER, BACKGROUND (rain, the city, the car), RADIO / MUSIC and VOICE (the agents and the
+DJ), each on its own.
 
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
 
@@ -183,6 +207,7 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 | `npm run dev:lan` | The same, with Vite over https on every interface (for a headset on the LAN) |
 | `npm run server` / `server:mock` | The agent server alone (port `PORT`, default 5210) |
 | `npm run mock` | Mock agents posting over HTTP to a running server (`--url`, `--fast`, `--token`) |
+| `npm run radio:demo` | A demo DJ on a running server's radio (`AGENT_CITY_URL`; `-- --every 30`) |
 | `npm test` | Server unit tests (`node --test`) |
 | `npm run build` then `npm run server` | Production: the server also serves `dist/` on :5210 |
 | `npm run app:build` / `app:dev` | The macOS app (see [Desktop app](#desktop-app-macos)) |
@@ -190,14 +215,14 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 ## Layout
 
 ```
-server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · models.mjs (the voice model's disk cache) · mock.mjs
+server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · music.mjs (the radio's library and DJ) · models.mjs (the voice model) · cache.mjs (downloads kept on disk) · mock.mjs
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
                labels (name tags) · signs (neon name on the roof) · billboards (posters on the LED screens)
                panel (the G list) · terminal (xterm.js) · agents (glue to the game)
 src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car)
-src/audio/     audio (the synthesised engine, radio and effects) · voice (the agents read out) · tts.worker (Supertonic 3)
+src/audio/     audio (the synthesised world, NEON FM and the mix) · music (the radio's player and its sources) · voice (the agents and the DJ read out) · tts.worker (Supertonic 3)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
-integrations/  claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh)
+integrations/  claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh, radio.sh) · radio (example DJs)
 desktop/       the macOS app (MyGo): main.go runs the compiled server and shows the game; scripts/build.mjs builds both
 ```
 

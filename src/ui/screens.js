@@ -14,7 +14,7 @@ const CONTROLS = [
   ['Map', 'M'],
   ['Reset to street', 'R'],
   ['Horn', 'F'],
-  ['Radio on/off', 'B'],
+  ['Radio on/off · next track', 'B · N'],
   ['Agents list', 'G'],
   ['Terminal at an agent\'s door', 'ENTER'],
   ['Menu', 'ESC'],
@@ -57,6 +57,7 @@ export class Screens {
           <div class="t-menu">
             <button class="btn primary" data-act="start">FREE RIDE</button>
             <button class="btn" data-act="runs">RUNS</button>
+            <button class="btn" data-act="radio">RADIO</button>
             <button class="btn" data-act="settings">SETTINGS</button>
             <button class="btn" data-act="controls">CONTROLS</button>
             <button class="btn" data-act="credits">CREDITS</button>
@@ -104,6 +105,11 @@ export class Screens {
     else if (a === 'resume') cb.onResume();
     else if (a === 'runs') this.showPause('runs');
     else if (a === 'settings') this.showPause('settings');
+    else if (a === 'radio') this.showPause('radio');
+    else if (a === 'radio-prev') this.radio?.prev();
+    else if (a === 'radio-next') this.radio?.next();
+    else if (a === 'radio-toggle') this.radio?.toggle();
+    else if (a === 'track') this.radio?.playTrack(data.id);
     else if (a === 'controls') this.showPause('controls');
     else if (a === 'credits') this.showPause('credits');
     else if (a === 'menu') this.showPause('menu');
@@ -136,6 +142,40 @@ export class Screens {
     this.titleOut = setTimeout(() => this.title.classList.add('hidden'), 800);
   }
 
+  // the radio tab: what plays, the controls, where it comes from, and who picks (the player is audio/music.js)
+  radioBody(seg) {
+    const m = this.radio;
+    if (!m) return '';
+    const s = this.settings, t = m.current, live = m.source?.live;
+    const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    // what plays, whoever picked it (the DJ, while it is on air)
+    const srcOn = m.source?.id || s.radioSource;
+    const catOn = m.djActive ? m.choice().category || 'all' : s.radioCategory;
+    const sources = `<span class="seg">${m.sources.map((src) => src.available
+      ? `<button class="${srcOn === src.id ? 'on' : ''}" data-act="set" data-k="radioSource" data-v="${src.id}">${src.name}</button>`
+      : `<button class="soon" disabled title="${esc(src.note)}">${src.name}<i>SOON</i></button>`).join('')}</span>`;
+    const lib = m.categories.filter((c) => c !== 'neon fm');
+    const dj = m.dj?.dj;
+    const djNote = !s.radioDj ? 'OFF' : !dj ? 'NO DJ ON AIR' : m.djActive ? `${esc(dj.name).toUpperCase()} PICKS` : `${esc(dj.name).toUpperCase()} · YOU PICKED`;
+    const tracks = m.tracks.filter((x) => x.category !== 'neon fm' && (catOn === 'all' || x.category === catOn));
+    const cats = `<span class="seg">${[['all', 'ALL'], ...lib.map((c) => [c, c.toUpperCase()])].map(([v, l]) => `<button class="${catOn === v ? 'on' : ''}" data-act="set" data-k="radioCategory" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</span>`;
+    return `<div class="radio">
+      <div class="np"><div class="np-t"><small>${!this.sound?.radio ? 'RADIO OFF' : m.inBreak ? 'ON AIR' : 'NOW PLAYING'}</small>
+        <b>${esc(t?.title || '—')}</b><span>${esc(t?.artist || '')}${t?.category ? ` · ${esc(t.category).toUpperCase()}` : ''}</span></div>
+        <div class="np-c"><button class="btn" data-act="radio-prev" ${live ? 'disabled' : ''}>◀◀</button><button class="btn primary" data-act="radio-toggle">${this.sound?.radio ? '❚❚' : '▶'}</button><button class="btn" data-act="radio-next" ${live ? 'disabled' : ''}>▶▶</button></div></div>
+      <div class="row"><span>SOURCE</span>${sources}</div>
+      ${srcOn === 'library' ? `<div class="row"><span>CATEGORY</span>${cats}</div>` : ''}
+      <div class="row"><span>AGENT DJ <small class="hint">${djNote}</small></span>${seg('radioDj', [[1, 'ON'], [0, 'OFF']])}</div>
+      ${srcOn === 'library' ? `<div class="tracks">${tracks.map((x) => `<div class="trk ${x.id === t?.id ? 'sel' : ''}" data-act="track" data-id="${esc(x.id)}">
+        <span>${esc(x.title)}<small>${esc(x.artist)}</small></span><span>${esc(x.category).toUpperCase()}</span></div>`).join('') || '<p class="empty">No tracks here. Put your own in ~/Music/Agent Runner (a folder per category).</p>'}</div>` : '<p class="empty">NEON FM plays the city\'s own score, live: it follows your speed and height.</p>'}
+    </div>`;
+  }
+
+  // the radio's state changed: redraw its tab when it is open
+  updateRadio() {
+    if (this.open === 'pause' && this.tab === 'radio') this.showPause('radio');
+  }
+
   // the voice's download progress or state beside its setting; rerender when the setting itself changed under it
   updateVoiceState(rerender = false) {
     if (this.open !== 'pause' || this.tab !== 'settings') return;
@@ -154,6 +194,7 @@ export class Screens {
     const tabs = `<div class="tabs">
       <button class="btn ${tab === 'menu' ? 'sel' : ''}" data-act="menu">PAUSED</button>
       <button class="btn ${tab === 'runs' ? 'sel' : ''}" data-act="runs">RUNS</button>
+      <button class="btn ${tab === 'radio' ? 'sel' : ''}" data-act="radio">RADIO</button>
       <button class="btn ${tab === 'settings' ? 'sel' : ''}" data-act="settings">SETTINGS</button>
       <button class="btn ${tab === 'controls' ? 'sel' : ''}" data-act="controls">CONTROLS</button>
       <button class="btn ${tab === 'credits' ? 'sel' : ''}" data-act="credits">CREDITS</button></div>`;
@@ -179,16 +220,22 @@ export class Screens {
         <div class="row"><span>QUALITY</span>${seg('quality', [['auto', 'AUTO'], ['high', 'HIGH'], ['medium', 'MEDIUM'], ['low', 'LOW']])}</div>
         <div class="row"><span>RAIN</span>${seg('rain', [[1, 'STORM'], [0.6, 'STEADY'], [0.25, 'DRIZZLE'], [0, 'OFF']])}</div>
         <div class="row"><span>TRAFFIC</span>${seg('traffic', [[1, 'BUSY'], [0.5, 'HALF'], [0.2, 'QUIET'], [0, 'OFF']])}</div>
-        <div class="row"><span>AGENT VOICE <small class="voice-st">${this.voiceState || ''}</small></span>${seg('voice', [[0, 'OFF'], [1, 'ON']])}</div>
+        <div class="row"><span>VOICE <small class="voice-st">${this.voiceState || ''}</small></span>${seg('voice', [[0, 'OFF'], [1, 'ON']])}</div>
+        <div class="row sub ${s.voice ? '' : 'dim'}"><span>AGENT VOICE <small class="hint">WHEN A TASK ENDS</small></span>${seg('agentVoice', [[0, 'OFF'], [1, 'DONE · FAILED'], [2, 'EVERY MESSAGE']])}</div>
+        <div class="row sub ${s.voice ? '' : 'dim'}"><span>RADIO VOICE <small class="hint">DJ · NEON FM</small></span>${seg('radioVoice', [[0, 'OFF'], [1, 'ON']])}</div>
         <div class="row"><span>VR DETAIL</span>${seg('vrDetail', [['auto', 'AUTO'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']])}</div>
         <div class="row"><span>MASTER VOLUME</span><span>${slider('volume', 0, 1, 0.05)}</span></div>
-        <div class="row"><span>MUSIC</span><span>${slider('music', 0, 1, 0.05)}</span></div>
+        <div class="row"><span>BACKGROUND <small class="hint">RAIN · CITY · CAR</small></span><span>${slider('background', 0, 1, 0.05)}</span></div>
+        <div class="row"><span>RADIO / MUSIC</span><span>${slider('music', 0, 1, 0.05)}</span></div>
+        <div class="row"><span>VOICE VOLUME <small class="hint">AGENTS · DJ</small></span><span>${slider('voiceVolume', 0, 1, 0.05)}</span></div>
         <div class="row"><span>FIELD OF VIEW</span><span>${slider('fov', 50, 80, 1)}</span></div>
         <div class="row"><span>HUD</span>${seg('hud', [[1, 'ON'], [0, 'OFF']])}</div>
         <div class="row"><span>CAMERA SHAKE</span>${seg('shake', [[1, 'ON'], [0, 'OFF']])}</div>`;
+    } else if (tab === 'radio') {
+      body = this.radioBody(seg);
     } else if (tab === 'credits') {
       body = `<div class="cred">${CREDITS.map(([name, by, lic, id, use]) => `<a href="https://sketchfab.com/3d-models/${id}" target="_blank" rel="noopener"><span>${name}<small>${use}</small></span><span>${by}<small>${lic}</small></span></a>`).join('')}
-        <p>Textures, air-conditioners, crates and bags: Poly Haven, CC0. Distant office facades: ambientCG, CC0. Fonts: Oxanium, JetBrains Mono, Monoton, Tilt Neon, Neonderthaw and Noto Serif TC, under the SIL Open Font License. The models were re-exported and compressed for the web, and the building models sliced and rendered into facades; <a href="${REPO}/blob/main/CREDITS.md" target="_blank" rel="noopener">CREDITS.md</a> has the details. Licences: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, <a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>.</p>
+        <p>Textures, air-conditioners, crates and bags: Poly Haven, CC0. Distant office facades: ambientCG, CC0. Radio music (CC0, OpenGameArt): Pro Sensory, iamoneabe, Ruskerdax, cinameng, Joth, Tsorthan Grove and cynicmusic. Fonts: Oxanium, JetBrains Mono, Monoton, Tilt Neon, Neonderthaw and Noto Serif TC, under the SIL Open Font License. The models were re-exported and compressed for the web, and the building models sliced and rendered into facades; <a href="${REPO}/blob/main/CREDITS.md" target="_blank" rel="noopener">CREDITS.md</a> has the details. Licences: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, <a href="https://openfontlicense.org" target="_blank" rel="noopener">SIL OFL 1.1</a>, <a href="https://creativecommons.org/publicdomain/zero/1.0/" target="_blank" rel="noopener">CC0</a>.</p>
         <p class="src">Agent Runner is a fork of Neon Zenith by Bill Chan, open source under the MIT licence: <a href="${REPO}" target="_blank" rel="noopener">github.com/billpwchan/neon-zenith</a> ★</p></div>`;
     } else {
       body = `<div class="ctl">${CONTROLS.map(([a, k]) => `<div><span>${a}</span><span>${k}</span></div>`).join('')}</div>`;

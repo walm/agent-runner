@@ -3,10 +3,13 @@
 // Off until the VOICE setting turns it on, which downloads the model once (~400 MB).
 //
 // A city of busy agents says more than anyone can listen to, so: one line waits per agent (a newer one replaces
-// it), what needs you goes first, and a line that has waited too long is dropped.
+// it), what needs you goes first, and a line that has waited too long is dropped. The radio DJ's announcements
+// (audio/music.js) are longer, read sentence by sentence, and go before everything else.
 const VOICE = 'F1', LANG = 'en', SPEED = 1.25;
 const MAX_WAIT = 20000; // ms a line may wait before it is stale
 const MAX_LEN = 180; // characters of a line that are read
+const RADIO_WAIT = 180000; // ms an announcement may wait
+const RADIO_CHUNK = 220; // characters per piece an announcement is read in
 
 export class Voice {
   // sound: the game's Sound (its AudioContext and mix); onStatus(state, info): 'loading' {pct}, 'ready'
@@ -17,7 +20,9 @@ export class Voice {
     this.enabled = false;
     this.worker = null;
     this.ready = false;
-    this.queue = []; // { agent, text, urgent, at }
+    this.queue = []; // { agent, text, urgent, radio, at }
+    this.onIdle = null; // () => void, when the last queued line has been spoken
+    this.onSpeak = null; // (radio, on) => void: a line starts or stops being spoken (radio: it is the radio's)
     this.busy = false; // a line is being made or spoken
     this.seq = 0;
   }
@@ -29,6 +34,7 @@ export class Voice {
       this.queue.length = 0;
       this.source?.stop();
       this.onStatus?.('off');
+      this.onIdle?.();
       return;
     }
     if (this.worker) { if (this.ready) this.onStatus?.('ready', { backend: this.backend }); return; }
@@ -39,26 +45,46 @@ export class Voice {
     this.worker.postMessage({ type: 'init', voice: VOICE });
   }
 
-  // a new line from an agent; urgent when it needs you or failed
-  say(agent, name, text, urgent = false) {
+  // a radio announcement, from the DJ: read in full (up to RADIO_CHUNK at a time), before any agent's line
+  announce(id, from, text) {
+    if (!this.enabled) return false;
+    const pieces = chunks(cleanAnnouncement(text));
+    if (!pieces.length) return false;
+    const at = performance.now();
+    pieces.forEach((t, i) => this.queue.push({ agent: `radio:${id}:${i}`, text: t, urgent: true, radio: true, at }));
+    this.next();
+    return true;
+  }
+
+  // nothing waiting and nothing being said
+  get idle() {
+    return !this.busy && !this.queue.length;
+  }
+
+  // a new line from an agent; urgent when it needs you or failed. With a verb ("finished", "failed") it reads as
+  // "infra finished: <the line>", or just "infra finished." when the line is not worth reading
+  say(agent, name, text, urgent = false, verb = '') {
     if (!this.enabled) return;
     const line = clean(text);
-    if (!line) return;
+    if (!line && !verb) return;
     const who = String(name || agent).split(' · ')[0];
     const i = this.queue.findIndex((q) => q.agent === agent);
     if (i >= 0) this.queue.splice(i, 1);
-    this.queue.push({ agent, text: `${who}: ${line}`, urgent, at: performance.now() });
+    const said = verb ? (line ? `${who} ${verb}: ${line}` : `${who} ${verb}.`) : `${who}: ${line}`;
+    this.queue.push({ agent, text: said, urgent, at: performance.now() });
     this.next();
   }
 
   next() {
     if (!this.ready || this.busy || !this.enabled) return;
     const now = performance.now();
-    this.queue = this.queue.filter((q) => now - q.at < MAX_WAIT);
-    if (!this.queue.length) return;
-    const i = Math.max(0, this.queue.findIndex((q) => q.urgent));
+    this.queue = this.queue.filter((q) => now - q.at < (q.radio ? RADIO_WAIT : MAX_WAIT));
+    if (!this.queue.length) { this.onIdle?.(); return; }
+    let i = this.queue.findIndex((q) => q.radio);
+    if (i < 0) i = Math.max(0, this.queue.findIndex((q) => q.urgent));
     const [q] = this.queue.splice(i, 1);
     this.busy = true;
+    this.line = q;
     this.pending = ++this.seq;
     this.worker.postMessage({ type: 'say', id: this.pending, text: q.text, lang: LANG, speed: SPEED });
   }
@@ -79,11 +105,13 @@ export class Voice {
 
   fail(message) {
     this.onStatus?.('error', { message });
+    this.queue.length = 0;
     this.worker?.terminate();
     this.worker = null;
     this.ready = false;
     this.enabled = false;
     this.busy = false;
+    this.onIdle?.();
   }
 
   play(pcm, sampleRate) {
@@ -97,8 +125,9 @@ export class Voice {
     src.buffer = buf;
     const g = ctx.createGain();
     g.gain.value = 1.1;
-    src.connect(g).connect(s.mix);
+    src.connect(g).connect(s.voiceBus);
     s.duck?.(true);
+    this.onSpeak?.(!!this.line?.radio, true);
     this.source = src;
     let done = false;
     const end = () => {
@@ -106,6 +135,7 @@ export class Voice {
       done = true;
       this.source = null;
       s.duck?.(false);
+      this.onSpeak?.(!!this.line?.radio, false);
       // a breath between lines
       setTimeout(() => { this.busy = false; this.next(); }, 250);
     };
@@ -123,4 +153,28 @@ function clean(text) {
   if (!t || /^[A-Za-z][\w.-]*\(.*\)$/.test(t) || /^Prompt: /.test(t)) return '';
   if (t.length > MAX_LEN) t = t.slice(0, t.lastIndexOf(' ', MAX_LEN) > 80 ? t.lastIndexOf(' ', MAX_LEN) : MAX_LEN) + '.';
   return t;
+}
+
+// an announcement as it reads aloud: links and markup are no use spoken
+function cleanAnnouncement(text) {
+  return String(text || '').replace(/\x1b\[[0-9;]*m/g, '').replace(/https?:\/\/\S+/g, '').replace(/[`*_>#]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// sentences, packed into pieces of up to RADIO_CHUNK characters (a long sentence is cut at a word)
+function chunks(text) {
+  const out = [];
+  let cur = '';
+  for (let s of text.match(/[^.!?]+[.!?]*\s*/g) || []) {
+    s = s.trim();
+    while (s.length > RADIO_CHUNK) {
+      const cut = s.lastIndexOf(' ', RADIO_CHUNK) > 60 ? s.lastIndexOf(' ', RADIO_CHUNK) : RADIO_CHUNK;
+      if (cur) { out.push(cur); cur = ''; }
+      out.push(s.slice(0, cut));
+      s = s.slice(cut).trim();
+    }
+    if (cur && cur.length + s.length + 1 > RADIO_CHUNK) { out.push(cur); cur = ''; }
+    cur = cur ? `${cur} ${s}` : s;
+  }
+  if (cur) out.push(cur);
+  return out;
 }

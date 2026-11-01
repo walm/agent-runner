@@ -28,6 +28,7 @@ import { drawCityMap } from './ui/citymap.js';
 import { createTouch, isTouch } from './ui/touch.js';
 import { Sound } from './audio/audio.js';
 import { Voice } from './audio/voice.js';
+import { MusicPlayer } from './audio/music.js';
 import { Lightning } from './atmos/lightning.js';
 import { buildRuns, buildShards, RunVisuals, RunBook } from './game/runs.js';
 import { Game } from './game/game.js';
@@ -50,7 +51,7 @@ import { NavVisuals } from './game/navvis.js';
 const params = new URLSearchParams(location.search);
 const WARM_STALL_MS = 8000; // the boot stops waiting for its shader warm-up once nothing has compiled for this long
 
-const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
+const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, agentVoice: 1, radioVoice: 1, volume: 0.8, background: 1, music: 0.6, voiceVolume: 1, radioSource: 'neonfm', radioCategory: 'all', radioDj: 1, fov: 60, hud: 1, shake: 1 };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nz.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }
@@ -216,14 +217,44 @@ async function boot() {
   });
   // built before the warm-up so its beacons compile with everything else
   const agents = new AgentLayer({ city, ui, screens, hud, adAtlas });
-  // the agents read out loud (Settings > VOICE): its state shows in the settings row and as toasts
+  // the voice (Settings > VOICE loads it): it reads what the agents finish or fail (AGENT VOICE) and the radio's
+  // announcements (RADIO VOICE). Its state shows in the settings row and as toasts
   const voice = new Voice(sound, (state, info) => {
     screens.voiceState = state === 'loading' ? `DOWNLOADING ${info.pct}%` : state === 'ready' ? 'SARAH · EN · 1.25×' : state === 'error' ? 'FAILED' : '';
     screens.updateVoiceState?.();
     if (state === 'ready') hud.toast('VOICE READY · SARAH', 'cyan');
     else if (state === 'error') { hud.toast('VOICE FAILED TO LOAD', 'mag'); console.warn('voice:', info.message); settings.voice = 0; screens.updateVoiceState?.(true); }
   });
-  agents.onMessage = (a, urgent) => voice.say(a.id, a.name, a.last, urgent);
+  // AGENT VOICE: 1 reads a task's end (done, failed), 2 every message line as well
+  agents.onMessage = (a, urgent) => { if (settings.agentVoice === 2) voice.say(a.id, a.name, a.last, urgent); };
+  agents.onTaskEnd = (a) => { if (settings.agentVoice >= 1) voice.say(a.id, a.name, a.last, a.status === 'error', a.status === 'error' ? 'failed' : 'finished'); };
+  // the radio (the RADIO menu): NEON FM or the music library, picked by the listener or an agent DJ
+  // the HUD takes markup; track names and announcements come from files and agents
+  const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const radio = new MusicPlayer(sound, voice, settings, {
+    onChange: () => { screens.updateRadio(); showNowPlaying(); },
+    onTrack: (t) => { if (t.category !== 'neon fm') hud.toast(esc(`♪ ${t.title}${t.artist ? ` · ${t.artist}` : ''}`.toUpperCase()), 'radio'); },
+    onSay: (a) => hud.radio(esc(a.from), esc(a.text.length > 220 ? `${a.text.slice(0, a.text.lastIndexOf(' ', 220))}…` : a.text)),
+  });
+  // lower right: what the radio plays, and ON AIR while it speaks
+  function showNowPlaying() {
+    const t = radio.current, dj = radio.djActive ? radio.dj.dj.name : '';
+    const fm = !t || t.category === 'neon fm';
+    hud.nowPlaying({
+      on: !!t && sound.radio,
+      label: (fm ? 'NEON FM 88.1' : `RADIO · ${t.category}`).toUpperCase() + (dj ? ` · DJ ${dj.toUpperCase()}` : ''),
+      title: fm ? 'Live synth score' : t.title,
+      artist: fm ? 'the city, after dark' : t.artist,
+    });
+  }
+  sound.onRadio = ((toggle) => (on) => { toggle(on); showNowPlaying(); })(sound.onRadio);
+  voice.onSpeak = (isRadio, on) => hud.onAir(isRadio && on);
+  sound.onStart = () => radio.start();
+  agents.feed.onRadio = (s) => radio.setDj(s);
+  agents.feed.onAnnounce = (a) => radio.announce(a);
+  agents.feed.onSkip = () => radio.skip();
+  screens.radio = radio;
+  screens.sound = sound;
   scene.add(agents.group);
   const nav = new Nav(city);
   const navVis = new NavVisuals(hud.el);
@@ -247,13 +278,16 @@ async function boot() {
       traffic.group.visible = settings.traffic > 0;
       sky2.group.visible = settings.traffic > 0 && !vr.tier;
     }
-    if (k === 'volume' || k === 'music' || k === 'all') sound.applySettings();
+    if (['volume', 'background', 'music', 'voiceVolume', 'all'].includes(k)) sound.applySettings();
+    if (k === 'radioSource' || k === 'radioCategory') radio.listenerPicked(k);
+    if (k === 'radioDj') radio.apply();
     if (k === 'voice' || k === 'all') voice.setEnabled(!!settings.voice);
     if (k === 'fov' || k === 'all') rig.fovBase = settings.fov;
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
     if (k === 'shake' || k === 'all') rig.shakeScale = settings.shake;
   }
-  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
+  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, music: radio, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
+  game.onRadioLine = (who, text) => radio.speakLine(who, text);
   agents.bind(game);
   // a lighter VR city (the tiers are in xr/vr.js): modelled facades and shopfronts only close by (the photo facades
   // take over sooner), Temple Street's props at lower detail, no sky traffic, thinner rain; null puts it all back

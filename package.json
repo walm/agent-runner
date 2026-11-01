@@ -37,7 +37,8 @@
     "app:dev": "cd desktop && bun install && bun run dev",
     "app:build": "cd desktop && bun install && bun run build",
     "preview": "vite preview --host 127.0.0.1 --port 5201",
-    "start": "npm run build && node server/index.mjs"
+    "start": "npm run build && node server/index.mjs",
+    "radio:demo": "node server/radio-demo.mjs"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
