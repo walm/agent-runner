@@ -25,6 +25,8 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `G` or click the **AGENTS** counter (X on a gamepad)          | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. On a gamepad: the stick or d-pad chooses, A drives, Y warps, B closes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | Pull up in the ring at the kerb, or fly into the agent's beam | A card shows who the agent is and what it last said; `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `↑ ↓` `PgUp PgDn` `Home End` (or a gamepad's sticks, d-pad, LB / RB) read back; `Esc` (or B) to leave.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `Space` held in a terminal (X on a gamepad, or the HOLD TO TALK button) | **Talk to the agent**: say it, let go. "Select 2", "select b" or an option's own words pick that option; "yes", "go", "that's okay" accept; "no" declines; "stop" interrupts; anything else is sent as a message. See [Talk to your agents](#talk-to-your-agents). |
+| `1`–`9` in a terminal, or the gamepad's d-pad and A | Pick one of the agent's options while it waits at a choice. |
 | `M` (Back on a gamepad)                                       | City map with every agent marked by status. Click to set a waypoint; on a gamepad the left stick pans, the triggers zoom and A sets the waypoint at the crosshair.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | A waypoint                                                    | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | WASD / Space / C / Shift                                      | Drive, lift off and climb, descend, boost (as in Neon Zenith).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -201,6 +203,53 @@ What differs from the screen:
 No headset? `?xremu` (dev server only) installs Meta's WebXR emulator (IWER) as a Quest 3; the controllers are
 driven from the console through `__xrdevice.controllers.left/right`.
 
+## Talk to your agents
+
+Open an agent's terminal, hold **Space** (X on a gamepad, or the **HOLD TO TALK** button), say it and let go. The
+words are heard on your machine by [Whistle](https://huggingface.co/Cactus-Compute/whistle), a 17 MB speech model
+that runs in the browser (in WebAssembly, on the CPU); the sound never leaves the machine. The agent server works
+out what the words mean where the agent is, and types them into the agent's own terminal:
+
+| The agent shows | You say | It gets |
+|---|---|---|
+| A choice (a permission prompt, a question with options) | "select 2", "option two", "the second one", "select b" | the key `2` (letters count a = 1, b = 2) |
+| | the option's own words ("SQLite", "yes, and don't ask again") | that option's number |
+| | "yes", "go", "okay", "that's okay", "do it" | Enter (the highlighted option, Yes) |
+| | "no", "deny", "cancel" | Escape |
+| | anything else | Escape, then your words as a message |
+| A prompt, or it is working | anything | your words and Enter (a working Claude Code queues it) |
+| It is working | "stop", "wait", "cancel" | Escape, which interrupts it |
+
+While an agent waits at a choice, its options are listed under its terminal as well: click one, press its number
+(top row or number pad), or move through them with the gamepad's d-pad and pick with A (B still closes). For a choice
+whose options the hooks do not send, the list is YES and NO.
+
+**Practise on the playground.** With the mock agents on (`npm run dev`, or Agents > Demo Agents in the app), the
+agent **playground · talk to me** in Temple Street keeps asking: a question with options, a permission prompt, then
+"what next?" at its prompt. It reacts to what you say or pick the way Claude Code would, without a terminal of its
+own.
+
+The line under the terminal shows what was heard and what was pressed, and the terminal shows it too. The first
+time, the browser asks for the microphone, and the model (17 MB) is fetched once into the server's cache.
+**TALK LANGUAGE** in Settings is English unless you change it: English, German, French, Spanish, Italian, Dutch and
+Polish, or AUTO to detect it (short phrases are heard better with the language set).
+
+**Where it can type.** The hooks send the agent's process id (`pid=$PPID` in
+[settings.example.json](integrations/claude-code/settings.example.json) and the Codex script), and the server finds
+the terminal that runs it:
+
+- **tmux** (any OS): the agent's pane.
+- **Ghostty**, **iTerm2** and **Terminal** (macOS): by AppleScript. macOS asks once whether the app running the
+  server (Agent Runner, or the terminal running `npm run dev`) may control that terminal. Ghostty is matched by
+  the agent's folder, so with two Ghostty terminals in one folder the one titled by Claude Code is picked, or none.
+- **Anything else** (an IDE's terminal, an agent on another machine): the words wait in the agent's inbox,
+  `GET /api/agents/<id>/inbox`, for a script of yours to read.
+
+Hooks set up before this existed still work in tmux and Ghostty when only one terminal is in the agent's folder;
+add `&pid=$PPID` to their URLs for the rest. `AGENT_CITY_INPUT=off` on the server stops all typing (the inbox
+still fills). Typing into a terminal is as good as sitting at it, so only the game itself can do it: the request
+needs a header another site cannot send, and with `AGENT_CITY_TOKEN` set, open the game with `?token=<token>`.
+
 ## Connect a harness
 
 The full API is in [docs/AGENT-API.md](docs/AGENT-API.md). The short version:
@@ -223,7 +272,7 @@ integrations/generic/post-event.sh my-bot:prod waiting "Approve the deploy?"
   own hook JSON to `POST /api/hooks/claude-code`, which maps it as follows:
   - prompt → working
   - tool calls → terminal lines
-  - permission notification → needs you
+  - permission prompt or a question with options → needs you (and you can answer it out loud)
   - stop → done
 
   There is one building per host and working directory.
@@ -256,10 +305,11 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 ## Layout
 
 ```
-server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · music.mjs (the radio's library and DJ) · models.mjs (the voice model) · cache.mjs (downloads kept on disk) · mock.mjs
+server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, output buffers) · adapters.mjs (harness hooks) · music.mjs (the radio's library and DJ) · models.mjs (the voice and speech models) · typer.mjs (typing into an agent's terminal) · cache.mjs (downloads kept on disk) · mock.mjs · playground.mjs (a mock agent to talk to)
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
                labels (name tags) · signs (neon name on the roof) · billboards (posters on the LED screens)
                panel (the G list) · terminal (xterm.js) · agents (glue to the game)
+               talk (push to talk) · stt.worker (Whistle) · intent (what "select 2" or "yes" means at a prompt)
 src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car) · autopilot (the car driving itself)
 src/audio/     audio (the synthesised world, NEON FM and the mix) · music (the radio's player and its sources) · voice (the agents and the DJ read out) · tts.worker (Supertonic 3)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags

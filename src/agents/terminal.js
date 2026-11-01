@@ -34,7 +34,9 @@ export class TerminalView {
           </div>
           <div class="tmeta"></div>
           <div class="tbody"></div>
-          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">READ-ONLY · ↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
+          <div class="tchoices hidden"></div>
+          <div class="ttalk idle"><button class="btn mic" data-ag="talk">HOLD TO TALK</button><span class="tt"></span><i class="lvl"><b></b></i></div>
+          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#agterm');
@@ -47,6 +49,60 @@ export class TerminalView {
     this.onClose = null;
     this.fixed = null; // [cols, rows] while a headset shows the terminal; otherwise it fits the window
     addEventListener('resize', () => this.fit());
+    // push to talk with the mouse or a finger, as Space does on the keyboard (agents.js)
+    this.onTalk = null; // (down) => void
+    const mic = this.q('.mic');
+    mic.addEventListener('pointerdown', (e) => { e.preventDefault(); mic.setPointerCapture?.(e.pointerId); this.onTalk?.(true); });
+    for (const ev of ['pointerup', 'pointercancel']) mic.addEventListener(ev, () => this.onTalk?.(false));
+    // the agent's options while it waits at a choice: click one, press its number, say it, or the d-pad and A
+    this.onPick = null; // (1…9 | 'yes' | 'no') => void
+    this.opts = [];
+    this.sel = 0;
+    this.optKey = '';
+    this.q('.tchoices').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pick]');
+      if (b) this.onPick?.(/^\d$/.test(b.dataset.pick) ? +b.dataset.pick : b.dataset.pick);
+    });
+  }
+
+  // the options of a waiting agent (meta.choices, from its hooks), or YES and NO when it waits at a choice whose
+  // options are not known; nothing while it works or sits at its prompt
+  choices(a) {
+    const m = a.meta || {};
+    const menu = m.prompt === 'menu' || (a.status === 'waiting' && !m.prompt);
+    const list = Array.isArray(m.choices) ? m.choices.slice(0, 9) : [];
+    this.opts = !menu ? [] : list.length ? list.map((l, i) => ({ pick: i + 1, key: String(i + 1), label: String(l) })) : [{ pick: 'yes', key: '⏎', label: 'YES' }, { pick: 'no', key: 'ESC', label: 'NO' }];
+    const key = `${a.id}|${a.last}|${this.opts.map((o) => o.label).join('|')}`;
+    if (key !== this.optKey) { this.optKey = key; this.sel = 0; }
+    const el = this.q('.tchoices');
+    el.classList.toggle('hidden', !this.opts.length);
+    this.onChoices?.();
+    el.innerHTML = this.opts.length ? `<span class="q">${esc(a.last || 'CHOOSE')}</span>${this.opts.map((o, i) => `<button class="opt ${i === this.sel ? 'pad-sel' : ''}" data-pick="${o.pick}"><b>${o.key}</b>${esc(o.label)}</button>`).join('')}` : '';
+    this.fit();
+  }
+
+  hasChoices() { return this.opts.length > 0; }
+
+  // the d-pad's highlight in the options, and A on it
+  moveChoice(d) {
+    if (!this.opts.length) return;
+    this.sel = (this.sel + d + this.opts.length) % this.opts.length;
+    this.q('.tchoices').querySelectorAll('.opt').forEach((b, i) => b.classList.toggle('pad-sel', i === this.sel));
+  }
+
+  pickChoice() { const o = this.opts[this.sel]; if (o) this.onPick?.(o.pick); }
+
+  // the talk line (talk.js): what to say and how, or what is happening; device picks the key it names
+  talk(s, device) {
+    const bar = this.q('.ttalk');
+    bar.className = `ttalk ${s.tone || 'idle'}`;
+    const key = device === 'gamepad' ? 'HOLD X' : device === 'touch' ? 'HOLD THE BUTTON' : 'HOLD SPACE';
+    const pick = device === 'gamepad' ? 'D-PAD AND A PICK' : device === 'touch' ? 'TAP ONE' : '1–9 OR CLICK PICKS';
+    this.q('.tt').textContent = !s.hint ? s.text : this.opts.length
+      ? `${key} AND SAY “SELECT 2”, “YES”, “NO” OR THE OPTION · ${pick}`
+      : `${key} AND TALK · “SELECT 2” · “YES” · “GO” · “NO” · OR SAY WHAT TO DO`;
+    this.q('.lvl b').style.width = `${Math.round((s.level || 0) * 100)}%`;
+    this.q('.mic').classList.toggle('on', s.phase === 'listening');
   }
 
   ensureTerm() {
@@ -123,6 +179,7 @@ export class TerminalView {
       a.last && ['LAST', a.last],
     ].filter(Boolean);
     this.q('.tmeta').innerHTML = bits.map(([k, v]) => `<span><i>${k}</i>${esc(v)}</span>`).join('');
+    this.choices(a);
   }
 
   // lines (±Infinity: the top or the bottom) and pages, for the keyboard and the gamepad
@@ -143,6 +200,8 @@ export class TerminalView {
     this.unsub = null;
     this.id = null;
     this.pending = null;
+    this.opts = [];
+    this.optKey = '';
     this.el.classList.add('hidden');
     if (!quiet) this.term?.blur();
   }

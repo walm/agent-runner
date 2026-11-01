@@ -19,6 +19,9 @@ const CONTROLS = [
   ['Radio on/off · next track', 'B · N'],
   ['Agents list', 'G'],
   ['Terminal at an agent\'s door', 'ENTER'],
+  ['Talk to the agent (in its terminal): hold, speak, let go', 'SPACE · GAMEPAD X'],
+  ['Pick an option while it waits at a choice', '1–9 · CLICK · GAMEPAD D-PAD + A'],
+  ['Say at its prompt', '“SELECT 2” · “SELECT B” · “YES” · “GO” · “NO” · “STOP” · ANY SENTENCE'],
   ['Autopilot: off, agent, cruise, turbo, tour', 'P · R-STICK PRESS'],
   ['Menu', 'ESC'],
   ['Quit to main menu (in the menu)', 'Q'],
@@ -236,6 +239,7 @@ export class Screens {
         <div class="row"><span>VOICE <small class="voice-st">${this.voiceState || ''}</small></span>${seg('voice', [[0, 'OFF'], [1, 'ON']])}</div>
         <div class="row sub ${s.voice ? '' : 'dim'}"><span>AGENT VOICE <small class="hint">WHEN A TASK ENDS</small></span>${seg('agentVoice', [[0, 'OFF'], [1, 'DONE · FAILED'], [2, 'EVERY MESSAGE']])}</div>
         <div class="row sub ${s.voice ? '' : 'dim'}"><span>RADIO VOICE <small class="hint">DJ · NEON FM</small></span>${seg('radioVoice', [[0, 'OFF'], [1, 'ON']])}</div>
+        <div class="row"><span>TALK LANGUAGE <small class="hint">HOLD SPACE IN A TERMINAL</small></span>${seg('talkLang', [['en', 'EN'], ['auto', 'AUTO'], ['de', 'DE'], ['fr', 'FR'], ['es', 'ES'], ['it', 'IT'], ['nl', 'NL'], ['pl', 'PL']])}</div>
         <div class="row"><span>VR DETAIL</span>${seg('vrDetail', [['auto', 'AUTO'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']])}</div>
         <div class="row"><span>MASTER VOLUME</span><span>${slider('volume', 0, 1, 0.05)}</span></div>
         <div class="row"><span>BACKGROUND <small class="hint">RAIN · CITY · CAR</small></span><span>${slider('background', 0, 1, 0.05)}</span></div>

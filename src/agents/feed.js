@@ -1,7 +1,7 @@
 // Client side of the agent server: a snapshot then live updates over SSE, plus per-agent output.
 // EventSource gives up for good when the server answers with an error (as the dev proxy does while the server is
 // down), so the connection is recreated here with a backoff. Every connect starts with a full snapshot.
-const API = (import.meta.env.VITE_AGENT_API || '').replace(/\/$/, '') + '/api';
+export const API = (import.meta.env.VITE_AGENT_API || '').replace(/\/$/, '') + '/api';
 
 export class AgentFeed {
   constructor() {
