@@ -4,7 +4,7 @@ const KEYS = {
   steer: [['KeyD', 'ArrowRight'], ['KeyA', 'ArrowLeft']],
   lift: [['Space'], ['KeyC']],
 };
-const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit' };
+const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit', KeyP: 'autopilot' };
 
 export class Input {
   constructor() {
@@ -47,7 +47,7 @@ export class Input {
       steer = steer || ax;
       lift = lift || -ry || (p.buttons[0]?.pressed ? 1 : 0) - (p.buttons[1]?.pressed ? 1 : 0);
       boost = boost || !!p.buttons[5]?.pressed || !!p.buttons[10]?.pressed;
-      const map = { 3: 'camera', 8: 'map', 9: 'pause', 12: 'next', 2: 'horn' };
+      const map = { 3: 'camera', 8: 'map', 9: 'pause', 12: 'next', 2: 'horn', 11: 'autopilot' };
       for (const [b, a] of Object.entries(map)) {
         const pressed = !!p.buttons[b]?.pressed;
         if (pressed && !this.padPrev[b]) this.queue.push(a);

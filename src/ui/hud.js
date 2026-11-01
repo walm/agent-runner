@@ -42,6 +42,7 @@ export class Hud {
         <div class="h-toast"></div>
         <div class="h-count hidden"></div>
         <div class="h-radio"></div>
+        <div class="h-ap interactive" title="Autopilot · P"><span>AUTOPILOT</span><b>OFF</b><small></small></div>
         <div class="h-np hidden"><i class="eq"><b></b><b></b><b></b><b></b></i><div><small></small><span class="t"></span><span class="a"></span>
           <span class="ctl"><button data-np="prev" title="Previous track">◀◀</button><button data-np="station" title="Next station">STATION ▸</button><button data-np="next" title="Next track · N">▶▶</button><button data-np="power" title="Radio on / off · B">❚❚</button></span></div></div>
         <div class="h-hints"></div>
@@ -70,6 +71,8 @@ export class Hud {
     this.count = q('.h-count');
     this.radioEl = q('.h-radio');
     this.np = q('.h-np');
+    this.ap = q('.h-ap');
+    this.ap.addEventListener('pointerdown', (e) => { e.preventDefault(); this.onAutopilot?.(); });
     // its buttons: prev, station, next, power (onRadioCmd); pointerdown, so the keys stay with the game
     this.np.addEventListener('pointerdown', (e) => {
       const b = e.target.closest('button[data-np]');
@@ -127,6 +130,13 @@ export class Hud {
   }
 
   onAir(on) { this.np.classList.toggle('air', on); }
+
+  // the autopilot chip, top right: its mode (a click steps it on), and what it is doing
+  autopilot(mode, what) {
+    this.ap.classList.toggle('on', mode !== 'off');
+    this.ap.querySelector('b').textContent = mode.toUpperCase();
+    this.ap.querySelector('small').textContent = what || '';
+  }
 
   radio(who, en) {
     this.onToast?.(`${who} · ${en}`, 'radio');
