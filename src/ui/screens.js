@@ -19,6 +19,8 @@ const CONTROLS = [
   ['Radio on/off · next track', 'B · N'],
   ['Agents list', 'G'],
   ['Terminal at an agent\'s door', 'ENTER'],
+  ['Talk to the agent (in its terminal): hold, speak, let go', 'SPACE · GAMEPAD X'],
+  ['Say at its prompt', '“SELECT 2” · “SELECT B” · “YES” · “GO” · “NO” · “STOP” · ANY SENTENCE'],
   ['Autopilot: off, agent, cruise, turbo, tour', 'P · R-STICK PRESS'],
   ['Menu', 'ESC'],
   ['Quit to main menu (in the menu)', 'Q'],

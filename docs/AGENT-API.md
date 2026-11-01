@@ -19,7 +19,7 @@ say "waiting, and here is why".
 | `status` | string | `idle` · `working` · `waiting` (needs a human) · `error` · `done`. Moving into `waiting`, `error` or `done` notifies the driver. |
 | `message` | string | A short human line ("Running tests", "Allow edit to auth.ts?"). It becomes the agent's *last* line and is also written to the terminal, dimmed. |
 | `text` | string ≤ 64 KB | Raw terminal output. It is appended to the agent's buffer (the last 256 KB is kept). ANSI colours and cursor movement are rendered. `\n` is fine. |
-| `meta` | object ≤ 4 KB | Merged into the agent's metadata. The terminal header shows `task`, `cwd` and `model`. |
+| `meta` | object ≤ 4 KB | Merged into the agent's metadata. The terminal header shows `task`, `cwd` and `model`. For [talking to the agent](#talking-to-an-agent): `pid`, `host`, `prompt`, `choices`, `tmux`, `input`. |
 | `end` | `true` | The session is over: status becomes `done`, and the agent is pruned after 2 hours. |
 
 An agent not heard from for 15 minutes shows as `offline`. One that is silent for 24 hours is removed.
@@ -43,8 +43,11 @@ An agent not heard from for 15 minutes shows as `offline`. One that is silent fo
 | `GET /api/music/file?id=…` | A track's audio, with byte ranges (`HEAD` fetches a catalogue track into the cache ahead of time). |
 | `GET /api/voice/<file>` | A file of the voice model, from the server's cache (downloaded from Hugging Face on the first request). Only the pinned revision's files. |
 | `GET /api/agents` | `[{ id, name, harness, status, last, meta, firstSeen, lastSeen, seq }]` |
+| `POST /api/agents/:id/input` | The game only: `{ text }`, what the driver said. Typed into the agent's terminal or put in its inbox (see [Talking to an agent](#talking-to-an-agent)). Returns `{ ok, kind, label, typed? , queued?, why? }`. |
+| `GET /api/agents/:id/inbox` | `{ ok, messages: [{ at, said, kind, keys }] }`: what was said to the agent and could not be typed. Reading empties it. |
+| `GET /api/stt/<file>` | The speech model the game hears the driver with (Whistle and the Needle engine), from the server's cache. |
 | `GET /api/agents/:id/output` | `{ id, text, seq }`: the buffered output. `seq` counts every character ever appended. |
-| `GET /api/stream` | Server-sent events: `snapshot` (the list) and `billboards` (the posters) on connect, then `agent` (`{ agent, prev, notable }`), `output` (`{ id, text, seq }`), `billboard` (one poster, or `{ agent, removed: true }`), `remove` (`{ id }`), `radio` (the radio's state, on connect too), `radio-announce` (`{ id, text, from, dj, when }`), `radio-skip` and `ping` every 15 s. |
+| `GET /api/stream` | Server-sent events: `snapshot` (the list) and `billboards` (the posters) on connect, then `agent` (`{ agent, prev, notable }`), `output` (`{ id, text, seq }`), `billboard` (one poster, or `{ agent, removed: true }`), `remove` (`{ id }`), `radio` (the radio's state, on connect too), `radio-announce` (`{ id, text, from, dj, when }`), `radio-skip`, `input` (`{ agent, said, kind }`, when something said went to an inbox) and `ping` every 15 s. |
 | `GET /api/health` | `{ ok, agents, clients }` |
 
 ## Examples
@@ -60,7 +63,7 @@ curl -s localhost:5210/api/events -d '[{"agent":"bot:1","status":"working"},{"ag
 my-job 2>&1 | while IFS= read -r l; do printf '%s\n' "$l" | curl -s --data-binary @- "localhost:5210/api/text?agent=bot:1"; done
 
 # a Claude Code hook (this is what integrations/claude-code/settings.example.json runs)
-curl -s -m 1 --data-binary @- "localhost:5210/api/hooks/claude-code?host=$(hostname -s)"
+curl -s -m 1 --data-binary @- "localhost:5210/api/hooks/claude-code?host=$(hostname -s)&pid=$PPID"
 ```
 
 ## Billboards
@@ -184,16 +187,42 @@ show up the next time the game asks.
   puts the same show on the air of any running server. [server/radio-demo.mjs](../server/radio-demo.mjs) is its
   script: a list of the requests above, which is all a DJ is.
 
+## Talking to an agent
+
+The driver holds Space in an agent's terminal and talks (README: [Talk to your agents](../README.md#talk-to-your-agents)).
+The game hears it and posts the words to `POST /api/agents/:id/input`; the server works out what they mean at the
+agent's prompt (`src/agents/intent.js`) and types the keys into the terminal the agent runs in (`server/typer.mjs`).
+What the server needs to know, in `meta`:
+
+| `meta` | |
+|---|---|
+| `pid` | The agent's process id. The hooks send `pid=$PPID` in the query (`/api/hooks/*`, `/api/text`). The server walks up from it to tmux, Ghostty, iTerm2 or Terminal. |
+| `host` | The machine it runs on (`hostname -s`). Only agents on the server's own machine are typed into. |
+| `prompt` | `menu` (a choice: "select 2" presses 2, "yes" Enter, "no" Escape) or `input` (a text prompt: everything is a message). A `waiting` agent with no `prompt` counts as a menu. `null` while it works. |
+| `choices` | The options' labels, in order, so an option can be picked by its own words. |
+| `tmux` | A tmux pane id (`%3`), to name the pane yourself. |
+| `input` | `inbox`: never type, always queue. |
+
+An agent that is not in a terminal (a service, a bot, an agent on another machine) reads its inbox instead:
+`GET /api/agents/<id>/inbox` returns what was said, with the server's reading of it (`kind`: `choose`, `yes`, `no`,
+`stop`, `message`, and the `keys` it would have pressed), and empties it. The SSE stream sends `input` when one
+arrives.
+
+Only the game may post input: the request needs `X-Agent-Runner: input` (which another site cannot send without a
+preflight the server refuses) and must not be cross-site. `AGENT_CITY_INPUT=off` stops all typing; with
+`AGENT_CITY_TOKEN` set the game needs `?token=<token>` in its URL.
+
 ## Claude Code mapping
 
 | Hook | Becomes |
 |---|---|
 | `SessionStart` | idle, "Session startup/resume" |
 | `UserPromptSubmit` | working. The prompt becomes `meta.task` and a `❯ prompt` line. |
-| `PreToolUse` | working, plus a line such as `⏺ Bash(npm test)` |
-| `PostToolUse` | the first 6 lines of the tool's output |
-| `Notification` | **waiting**, with the notification text (permission prompts, idle prompts) |
-| `Stop` | **done**, "Finished, waiting for the next prompt" |
+| `PreToolUse` | working, plus a line such as `⏺ Bash(npm test)`. `AskUserQuestion` is **waiting** instead, with the question, its options as `meta.choices` and `prompt: menu`. |
+| `PermissionRequest` | **waiting**, "Allow Bash(npm test)?", `prompt: menu` |
+| `PostToolUse` | working, with the first 6 lines of the tool's output |
+| `Notification` | **waiting**, with the notification text: a permission prompt is `prompt: menu`, an idle prompt `prompt: input` |
+| `Stop` | **done**, "Finished, waiting for the next prompt", `prompt: input` |
 | `SessionEnd` | end |
 
 Writing an adapter for another harness means adding one function to `server/adapters.mjs` that maps the payload
