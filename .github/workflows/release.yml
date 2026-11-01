@@ -1,0 +1,88 @@
+# Each pull request merged into main builds the Mac app (universal: Apple Silicon and Intel) and publishes its disk
+# image as a GitHub release, tagged v<package.json version>-pr<number>. Run it by hand (Actions > release > Run
+# workflow) to release main as it is, tagged v<version>-run<number>.
+name: release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# one release at a time, in merge order
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  mac:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache-dependency-path: desktop/go.sum
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install
+        run: |
+          npm ci
+          cd desktop && bun install --frozen-lockfile
+
+      - name: Test
+        run: npm test
+
+      # buildCommand (desktop/scripts/build.mjs) builds the game and the agent server for both architectures
+      - name: Build the app
+        working-directory: desktop
+        run: ./node_modules/.bin/mygo build -platform darwin/universal
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ -n "$PR_NUMBER" ]; then
+            tag="v$version-pr$PR_NUMBER"
+            title="Agent Runner $version (#$PR_NUMBER)"
+            about="Merged: [$PR_TITLE]($PR_URL)"
+          else
+            tag="v$version-run$GITHUB_RUN_NUMBER"
+            title="Agent Runner $version (run $GITHUB_RUN_NUMBER)"
+            about="Built by hand from main at ${SHA:0:7}."
+          fi
+          dmg=$(ls desktop/build/darwin-universal/*.dmg)
+          cat > notes.md <<EOF
+          $about
+
+          **Install:** open \`$(basename "$dmg")\` and drag Agent Runner to Applications. It runs on Apple Silicon and Intel Macs.
+
+          The app is signed ad hoc, not notarised, so macOS stops it on first launch. Clear the download flag once:
+
+          \`\`\`
+          xattr -dr com.apple.quarantine "/Applications/Agent Runner.app"
+          \`\`\`
+          EOF
+          gh release create "$tag" "$dmg" --target "$SHA" --title "$title" --notes-file notes.md --latest

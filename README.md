@@ -139,6 +139,11 @@ Debug: `?play&agent=<id or part of a name>` starts the game parked outside that 
   `macos.notarize` in `desktop/mygo.config.ts` ([MyGo's distribution docs](https://mygo.egoist.dev/docs/distribution)).
   The compiled server is a Bun executable, which needs the JIT entitlements under the hardened runtime
   (`macos.helperEntitlements`).
+- **Releases**: every pull request merged into `main` builds a universal app (Apple Silicon and Intel) on GitHub
+  Actions and publishes its disk image as a release tagged `v<version>-pr<number>`
+  (`.github/workflows/release.yml`; Actions > release > Run workflow releases `main` by hand). Those builds are
+  signed ad hoc too: after installing, clear the download flag with
+  `xattr -dr com.apple.quarantine "/Applications/Agent Runner.app"`.
 
 ## VR (Meta Quest)
 
