@@ -178,7 +178,11 @@ async function boot() {
   scene.add(moon);
 
   const post = createPost(renderer, scene, camera);
-  const gov = new Governor((s) => post.setScale(s), { min: 0.5, max: 1 });
+  // the governor's knob, and what follows it: the scene pass, the street's mirror (half of it), and how many faces
+  // of the car's reflection cube are redrawn a frame (each one is the whole city again)
+  let probeFaces = 2;
+  const applyScale = (s) => { post.setScale(s); ground.setReflScale(0.5 * s); probeFaces = s < 0.75 ? 1 : 2; };
+  const gov = new Governor(applyScale, { min: 0.5, max: 1 });
 
   const probe = createReflectionProbe(128);
   const model = createKiteModel(probe.texture);
@@ -285,7 +289,7 @@ async function boot() {
       gov.locked = q !== 'auto';
       const scale = { auto: gov.scale, high: 1, medium: 0.75, low: 0.58 }[q];
       gov.scale = scale;
-      post.setScale(scale);
+      applyScale(scale);
       rain.setQuality(q === 'low' ? 0.45 : q === 'medium' ? 0.75 : 1);
     }
     if (k === 'rain' || k === 'all') { U.rain.value = settings.rain; rain.group.visible = settings.rain > 0; }
@@ -404,6 +408,8 @@ async function boot() {
   }
 
   window.addEventListener('resize', () => {
+    // a window dragged to another display changes its pixel ratio along with its size
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -441,7 +447,7 @@ async function boot() {
     district.update(view);
     cullChunks(scene, view.position, xr && vr.tier ? vr.tier.cull : 1);
     clouds.update(view);
-    probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], xr ? vr.probeFaces() : 2);
+    probe.update(renderer, scene, kite.model.position, [kite.model, rain.group], xr ? vr.probeFaces() : probeFaces);
     if (xr) vr.render();
     else {
       ground.updateReflection(renderer, scene, camera);
