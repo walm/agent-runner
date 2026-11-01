@@ -31,6 +31,7 @@ export class Voice {
     if (on === this.enabled) return;
     this.enabled = on;
     if (!on) {
+      clearTimeout(this.retry);
       this.queue.length = 0;
       this.source?.stop();
       this.onStatus?.('off');
@@ -80,6 +81,14 @@ export class Voice {
     const now = performance.now();
     this.queue = this.queue.filter((q) => now - q.at < (q.radio ? RADIO_WAIT : MAX_WAIT));
     if (!this.queue.length) { this.onIdle?.(); return; }
+    // no sound until the first key or click has started the game's audio: the lines wait (and age out) rather
+    // than being synthesised one after another for a context that cannot play them
+    const ctx = this.sound.ctx;
+    if (!ctx || ctx.state !== 'running') {
+      clearTimeout(this.retry);
+      this.retry = setTimeout(() => this.next(), 500);
+      return;
+    }
     let i = this.queue.findIndex((q) => q.radio);
     if (i < 0) i = Math.max(0, this.queue.findIndex((q) => q.urgent));
     const [q] = this.queue.splice(i, 1);
