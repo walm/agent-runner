@@ -38,6 +38,7 @@ export class AgentLayer {
     this.game = null;
     this.near = null;
     this.notes = new Map(); // id -> time of the last notification, to keep chatty agents quiet
+    this.onMessage = null; // (agent, urgent) => void: an agent sent a new message line (the voice reads it)
     this.listDirty = false;
 
     // the HUD chip: count, how many need you, link state; a tap opens the list (no G key on a phone)
@@ -71,6 +72,7 @@ export class AgentLayer {
   // ---- data ----
   upsert(a, { notable, initial } = {}) {
     let e = this.entries.get(a.id);
+    const said = e?.agent.last;
     if (!e) {
       if (!this.free.length) return; // more agents than beacons: the newest wait until one leaves
       const place = this.placement.place(a);
@@ -85,6 +87,7 @@ export class AgentLayer {
     this.labels.sync([...this.entries.values()]);
     if (this.term.id === a.id) this.term.header(a);
     if (notable && !initial) this.notify(a);
+    if (!initial && a.last && a.last !== said) this.onMessage?.(a, a.status === 'waiting' || a.status === 'error');
     this.listDirty = true;
     this.updateChip();
     this.pendingWarp();

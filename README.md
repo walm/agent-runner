@@ -34,6 +34,12 @@ Agents can also put up a **billboard**: a poster about their task (an image they
 city designs a poster around) that rotates on the LED screens across the city. See
 [Billboards](docs/AGENT-API.md#billboards); for Claude Code there is a skill that draws one.
 
+**Agent voice** (Settings > AGENT VOICE, off by default): the agents read their messages out loud, in
+[Supertonic 3](https://huggingface.co/supertone-oss-archive/supertonic-3)'s voice "Sarah", English, at 1.25×. It runs
+in the browser, in a worker (WebGPU, else WebAssembly). Turning it on downloads the model once (about 400 MB, kept
+in the browser's cache). Tool calls and your own prompts are not read, one line waits per agent, and "needs you"
+goes first. Nothing is spoken until the game's sound has started (a key or a click).
+
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
 
 You are notified when an agent starts waiting for you, fails or finishes. "Needs you" also comes over the radio.
@@ -48,6 +54,29 @@ Each harness has its own neighbourhood:
 An agent's id hashes to a building, so it gets the same building every time.
 
 Debug: `?play&agent=<id or part of a name>` starts the game parked outside that agent.
+
+## Desktop app (macOS)
+
+`npm run app:build` packages the city as a Mac app with [MyGo](https://mygo.egoist.dev):
+`desktop/build/darwin-arm64/Neon City Agents.app` and a disk image beside it. It needs Go 1.27+ and Bun.
+
+- The app runs the agent server inside it (compiled by Bun into one executable) on `127.0.0.1:5210`, where the
+  hooks already post, so Claude Code, Codex and the scripts reach it unchanged. Its window shows the game from that
+  server.
+- **Agents** menu: **Demo Agents** turns the mock agents on or off (on at first; the app remembers),
+  **Copy Agent Server URL**, and **Show Server Log** (`~/Library/Logs/Neon City Agents/server.log`).
+- Closing the window keeps the app and its server running, so agents keep reporting; the Dock icon brings the
+  city back. Quitting stops the server.
+- When something else holds port 5210 (`npm run dev`, say), the app runs its server on another port and says so
+  in its window title. Hooks that post to 5210 then reach the other server.
+- `NCA_DIAG=1` (run the executable in `Contents/MacOS/` from a terminal) logs how far the page got every few
+  seconds to `~/Library/Logs/Neon City Agents/page.log`: the loader, the graphics backend, frames, errors.
+  `NCA_QUERY='?webgl'` adds a query to the page's URL, to try the game's switches.
+- `npm run app:dev` runs it from source (the server with Node, the game from `dist/`).
+- The build is signed ad hoc: it opens on the Mac that built it. For other Macs, set `macos.signingIdentity` and
+  `macos.notarize` in `desktop/mygo.config.ts` ([MyGo's distribution docs](https://mygo.egoist.dev/docs/distribution)).
+  The compiled server is a Bun executable, which needs the JIT entitlements under the hardened runtime
+  (`macos.helperEntitlements`).
 
 ## VR (Meta Quest)
 
@@ -151,6 +180,7 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 | `npm run mock` | Mock agents posting over HTTP to a running server (`--url`, `--fast`, `--token`) |
 | `npm test` | Server unit tests (`node --test`) |
 | `npm run build` then `npm run server` | Production: the server also serves `dist/` on :5210 |
+| `npm run app:build` / `app:dev` | The macOS app (see [Desktop app](#desktop-app-macos)) |
 
 ## Layout
 
@@ -160,8 +190,10 @@ src/agents/    feed (SSE client) · placement (agent → building and kerb) · v
                labels (name tags) · signs (neon name on the roof) · billboards (posters on the LED screens)
                panel (the G list) · terminal (xterm.js) · agents (glue to the game)
 src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car)
+src/audio/     audio (the synthesised engine, radio and effects) · voice (the agents read out) · tts.worker (Supertonic 3)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
 integrations/  claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh)
+desktop/       the macOS app (MyGo): main.go runs the compiled server and shows the game; scripts/build.mjs builds both
 ```
 
 The game-side changes to upstream files are small: `src/main.js`, `src/game/game.js`, `src/core/input.js` and

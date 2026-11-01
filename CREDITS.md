@@ -30,6 +30,14 @@ Vehicle and brand names in model titles belong to their owners. The models are f
   - The environment light is the *Shanghai Bund* HDRI.
 - **[ambientCG](https://ambientcg.com)** (public domain): Facade009 and Facade019B, the distant office towers.
 
+## Speech: OpenRAIL-M
+
+- [Supertonic 3](https://huggingface.co/supertone-oss-archive/supertonic-3) by Supertone: the agents' voice
+  (the preset style F1, "Sarah"). The weights are not in this repository: the game downloads them from Hugging Face
+  when the AGENT VOICE setting is turned on, and runs them with
+  [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT). The pipeline follows Supertone's demo
+  (MIT sample code).
+
 ## Fonts: SIL Open Font License 1.1
 
 - [Oxanium](https://github.com/sevmeyer/oxanium) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono): interface, adverts, signs.

@@ -130,6 +130,14 @@ export class Screens {
     setTimeout(() => this.title.classList.add('hidden'), 800);
   }
 
+  // the voice's download progress or state beside its setting; rerender when the setting itself changed under it
+  updateVoiceState(rerender = false) {
+    if (this.open !== 'pause' || this.tab !== 'settings') return;
+    if (rerender) { this.showPause('settings'); return; }
+    const el = this.pause.querySelector('.voice-st');
+    if (el) el.textContent = this.voiceState || '';
+  }
+
   showPause(tab = 'menu') {
     this.tab = tab;
     this.open = 'pause';
@@ -164,6 +172,7 @@ export class Screens {
         <div class="row"><span>QUALITY</span>${seg('quality', [['auto', 'AUTO'], ['high', 'HIGH'], ['medium', 'MEDIUM'], ['low', 'LOW']])}</div>
         <div class="row"><span>RAIN</span>${seg('rain', [[1, 'STORM'], [0.6, 'STEADY'], [0.25, 'DRIZZLE'], [0, 'OFF']])}</div>
         <div class="row"><span>TRAFFIC</span>${seg('traffic', [[1, 'BUSY'], [0.5, 'HALF'], [0.2, 'QUIET'], [0, 'OFF']])}</div>
+        <div class="row"><span>AGENT VOICE <small class="voice-st">${this.voiceState || ''}</small></span>${seg('voice', [[0, 'OFF'], [1, 'ON']])}</div>
         <div class="row"><span>VR DETAIL</span>${seg('vrDetail', [['auto', 'AUTO'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']])}</div>
         <div class="row"><span>MASTER VOLUME</span><span>${slider('volume', 0, 1, 0.05)}</span></div>
         <div class="row"><span>MUSIC</span><span>${slider('music', 0, 1, 0.05)}</span></div>

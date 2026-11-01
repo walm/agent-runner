@@ -23,3 +23,8 @@ dist/
 # per-machine deploy settings
 /deploy/local.conf
 /deploy/local/
+
+# the desktop app (desktop/): its builds, mygo's dev app and the compiled agent server
+/desktop/build/
+/desktop/.mygo/
+/desktop/resources/darwin-*/

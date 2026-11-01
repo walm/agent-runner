@@ -2,6 +2,7 @@
 // In-process: runMock(post) where post(events) ingests directly. Standalone, over HTTP like a real harness:
 //   node server/mock.mjs [--url http://127.0.0.1:5210] [--fast] [--token T]
 import { fileURLToPath } from 'node:url';
+import { basename } from 'node:path';
 
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m', mag: '\x1b[35m', cyan: '\x1b[36m', grey: '\x1b[90m' };
 const host = 'mbp-walm';
@@ -149,7 +150,9 @@ async function safe(post, events) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// run as a script of its own, not imported; inside the desktop app's single compiled file every module shares the
+// entry's URL, so the file name decides
+if (process.argv[1] === fileURLToPath(import.meta.url) && basename(process.argv[1]) === 'mock.mjs') {
   const argv = process.argv.slice(2);
   const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d; };
   const url = opt('--url', 'http://127.0.0.1:5210').replace(/\/$/, '');

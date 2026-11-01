@@ -1,6 +1,8 @@
 // Agent event server: harnesses POST events, the game reads a snapshot and follows an SSE stream.
 // Plain node:http, no dependencies. `node server/index.mjs [--mock] [--fast]`; PORT (5210) and AGENT_CITY_TOKEN
 // from the environment. Serves dist/ as well when it exists, so a production build needs only this process.
+// The desktop app (desktop/) runs it compiled, with AGENT_CITY_DIST pointing at the game it ships and
+// AGENT_CITY_PARENT_PID at itself, so the server goes when the app does.
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname, normalize } from 'node:path';
@@ -13,10 +15,18 @@ const PORT = +(process.env.PORT || 5210);
 const HOST = process.env.HOST || '127.0.0.1';
 const TOKEN = process.env.AGENT_CITY_TOKEN || '';
 const MAX_BODY = 1024 * 1024;
-const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
+const DIST = process.env.AGENT_CITY_DIST ? join(process.env.AGENT_CITY_DIST, '/') : fileURLToPath(new URL('../dist/', import.meta.url));
 const args = new Set(process.argv.slice(2));
 
 const store = new Store();
+
+// started by the desktop app: leave with it, even when it could not say so (a crash, a force quit)
+const PARENT = +(process.env.AGENT_CITY_PARENT_PID || 0);
+if (PARENT) {
+  setInterval(() => {
+    try { process.kill(PARENT, 0); } catch { process.exit(0); }
+  }, 2000).unref();
+}
 const clients = new Set();
 
 function send(res, code, body, headers = {}) {

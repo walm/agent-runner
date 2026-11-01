@@ -26,6 +26,7 @@ import { Screens } from './ui/screens.js';
 import { drawCityMap } from './ui/citymap.js';
 import { createTouch, isTouch } from './ui/touch.js';
 import { Sound } from './audio/audio.js';
+import { Voice } from './audio/voice.js';
 import { Lightning } from './atmos/lightning.js';
 import { buildRuns, buildShards, RunVisuals, RunBook } from './game/runs.js';
 import { Game } from './game/game.js';
@@ -46,8 +47,9 @@ import { Nav } from './game/nav.js';
 import { NavVisuals } from './game/navvis.js';
 
 const params = new URLSearchParams(location.search);
+const WARM_MS = 20000; // the longest the boot waits for its shader warm-up
 
-const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
+const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, volume: 0.8, music: 0.6, fov: 60, hud: 1, shake: 1 };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nz.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }
@@ -110,6 +112,8 @@ async function boot() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   await renderer.init();
+  // which graphics API this page got, for anyone looking in before boot is done (the desktop app's diagnostics)
+  window.__nzBoot = { backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl', webxr };
   // the emulator's XR framebuffer is null (the canvas itself), which three's WebGL state cannot use as a WeakMap key
   if (import.meta.env.DEV && window.__xrdevice && renderer.backend.state) renderer.backend.state.currentDrawbuffers = new Map();
   await progress(0.08, 'LOADING TEXTURES');
@@ -210,6 +214,14 @@ async function boot() {
   });
   // built before the warm-up so its beacons compile with everything else
   const agents = new AgentLayer({ city, ui, screens, hud, adAtlas });
+  // the agents read out loud (Settings > VOICE): its state shows in the settings row and as toasts
+  const voice = new Voice(sound, (state, info) => {
+    screens.voiceState = state === 'loading' ? `DOWNLOADING ${info.pct}%` : state === 'ready' ? 'SARAH · EN · 1.25×' : state === 'error' ? 'FAILED' : '';
+    screens.updateVoiceState?.();
+    if (state === 'ready') hud.toast('VOICE READY · SARAH', 'cyan');
+    else if (state === 'error') { hud.toast('VOICE FAILED TO LOAD', 'mag'); console.warn('voice:', info.message); settings.voice = 0; screens.updateVoiceState?.(true); }
+  });
+  agents.onMessage = (a, urgent) => voice.say(a.id, a.name, a.last, urgent);
   scene.add(agents.group);
   const nav = new Nav(city);
   const navVis = new NavVisuals(hud.el);
@@ -234,6 +246,7 @@ async function boot() {
       sky2.group.visible = settings.traffic > 0 && !vr.tier;
     }
     if (k === 'volume' || k === 'music' || k === 'all') sound.applySettings();
+    if (k === 'voice' || k === 'all') voice.setEnabled(!!settings.voice);
     if (k === 'fov' || k === 'all') rig.fovBase = settings.fov;
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
     if (k === 'shake' || k === 'all') rig.shakeScale = settings.shake;
@@ -311,7 +324,12 @@ async function boot() {
       contexts.get = getContext;
     }
     renderer.setRenderTarget(prevTarget);
-    await Promise.all(jobs);
+    // WebKit (Safari, and the desktop app's web view) can leave some of these unsettled for good: past WARM_MS
+    // the boot goes on, and whatever is left compiles the first time it is drawn
+    const t0 = performance.now();
+    const settled = await Promise.race([Promise.all(jobs).then(() => true), new Promise((r) => setTimeout(() => r(false), WARM_MS))]);
+    window.__nzBoot.warmMs = Math.round(performance.now() - t0);
+    if (!settled) console.warn(`warm-up: pipelines still compiling after ${WARM_MS / 1000} s; going on without them`);
     await progress(0.95, 'IGNITION');
     ground.updateReflection(renderer, scene, camera, true);
     post.render();
@@ -379,7 +397,7 @@ async function boot() {
   if (params.get('agent')) { if (game.state === 'title') game.startFree(); agents.warpWhenSeen(params.get('agent')); }
   if (touch) game.touchUi = touchUi;
 
-  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, nav, vr, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
+  window.__nz = { renderer, scene, camera, post, gov, city, lightmap, fly, U, ground, facadeKit, shopKit, district, kite, rig, input, traffic, game, runs, shards, sound, hud, screens, agents, nav, vr, voice, ready: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl' };
 }
 
 boot().catch((e) => {

@@ -140,7 +140,13 @@ export class Sound {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(this.settings.volume, t, 0.1);
-    this.musicBus.gain.setTargetAtTime(this.radio ? this.settings.music * 0.7 : 0, t, 0.4);
+    this.musicBus.gain.setTargetAtTime(this.radio ? this.settings.music * 0.7 * (this.ducked ? 0.3 : 1) : 0, t, this.ducked ? 0.15 : 0.4);
+  }
+
+  // the music steps back while an agent speaks (audio/voice.js)
+  duck(on) {
+    this.ducked = on;
+    this.applySettings();
   }
 
   toggleRadio() {
