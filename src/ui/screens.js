@@ -17,6 +17,7 @@ const CONTROLS = [
   ['Radio on/off · next track', 'B · N'],
   ['Agents list', 'G'],
   ['Terminal at an agent\'s door', 'ENTER'],
+  ['Autopilot: off, agent, cruise, turbo, tour', 'P · R-STICK PRESS'],
   ['Menu', 'ESC'],
   ['Quit to main menu (in the menu)', 'Q'],
   ['Gamepad', 'RT/LT · L-stick · R-stick lift · RB boost'],
@@ -40,11 +41,11 @@ const CREDITS = [
 ];
 
 export class Screens {
-  constructor(root, { settings, runs, onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onQuit, onUi, mapImage }) {
+  constructor(root, { settings, runs, onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onQuit, onAutopilot, onUi, mapImage }) {
     this.root = root;
     this.settings = settings;
     this.runs = runs;
-    this.cb = { onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onQuit, onUi };
+    this.cb = { onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onQuit, onAutopilot, onUi };
     this.mapImage = mapImage;
     this.open = null;
     root.insertAdjacentHTML('beforeend', `
@@ -117,6 +118,7 @@ export class Screens {
     else if (a === 'reset') cb.onReset();
     else if (a === 'endrun') { this.closePause(); cb.onEndRun(); }
     else if (a === 'quit') cb.onQuit();
+    else if (a === 'autopilot') { cb.onAutopilot(data.mode); this.showPause(this.tab); }
     else if (a === 'closemap') this.closeMap();
     else if (a === 'set') { this.settings[data.k] = isNaN(+data.v) ? data.v : +data.v; cb.onSetting(data.k); this.showPause(this.tab); }
     else if (a === 'closeres') this.closeResults();
@@ -171,6 +173,12 @@ export class Screens {
     </div>`;
   }
 
+  // the autopilot's mode changed: the menu's row shows it
+  updateAutopilot(mode) {
+    this.apMode = mode;
+    if (this.open === 'pause' && this.tab === 'menu') this.showPause('menu');
+  }
+
   // the radio's state changed: redraw its tab when it is open
   updateRadio() {
     if (this.open === 'pause' && this.tab === 'radio') this.showPause('radio');
@@ -206,6 +214,7 @@ export class Screens {
           ? `<div class="runc" data-act="reset"><div class="ix">↺</div><div class="nm"><small>RESTART RUN · R</small></div><div></div></div>
         <div class="runc" data-act="endrun"><div class="ix">×</div><div class="nm"><small>END RUN</small></div><div></div></div>`
           : `<div class="runc" data-act="reset"><div class="ix">↺</div><div class="nm"><small>BACK TO THE STREET · R</small></div><div></div></div>`}
+        ${this.atTitle || this.inRun ? '' : `<div class="row ap-row"><span>AUTOPILOT <small class="hint">P</small></span><span class="seg">${[['off', 'OFF'], ['agent', 'AGENT'], ['cruise', 'CRUISE'], ['turbo', 'TURBO'], ['tour', 'TOUR']].map(([m, l]) => `<button class="${this.apMode === m ? 'on' : ''}" data-act="autopilot" data-mode="${m}">${l}</button>`).join('')}</span></div>`}
         ${this.atTitle ? '' : `<div class="runc" data-act="quit"><div class="ix">⏏</div><div class="nm"><small>QUIT TO MAIN MENU · Q</small></div><div></div></div>`}
       </div>`;
     } else if (tab === 'runs') {

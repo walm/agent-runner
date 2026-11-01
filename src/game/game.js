@@ -3,6 +3,7 @@ import * as THREE from 'three/webgpu';
 import { CITY, districtSeedAt, groundAt } from '../city/layout.js';
 import { SKY_ALT } from '../life/skytraffic.js';
 import { U } from '../core/shared.js';
+import { Autopilot, MODES, MODE_NAMES } from './autopilot.js';
 
 const DEG = 180 / Math.PI;
 const bearingOf = (dx, dz) => ((Math.atan2(dx, -dz) * DEG) + 360) % 360;
@@ -25,6 +26,9 @@ const RADIO = {
   },
 };
 
+const TOUR_ZENITH = [['Fifteen hundred metres of glass, with a landing pad near the top. Up there, the rain stops.'], ['The tallest thing in Kowloon, and the brightest. The pad at fourteen-eighteen is open all night.']];
+const titleCase = (s) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
 export class Game {
   constructor(o) {
     Object.assign(this, o); // city, kite, rig, camera, input, hud, screens, sound, visuals, runs, book, shards, settings, attract, agents, nav, touch
@@ -45,6 +49,30 @@ export class Game {
     this.flags = {};
     this.bot = null;
     this.stats = { hits: 0, hitSum: 0 };
+    this.autopilot = new Autopilot(this);
+    // the tour's stops: the district's name, and a word about it from the radio
+    this.autopilot.onStop = (s) => {
+      this.hud.toast(`TOUR · ${s.en}`, 'cyan');
+      const pool = s.zenith ? TOUR_ZENITH : RADIO.district[s.type];
+      const [line] = pool[Math.floor(Math.random() * pool.length)];
+      this.radio(['TOUR · NEON FM 88.1', `${titleCase(s.en)}. ${line}`], true);
+    };
+  }
+
+  // the autopilot's mode (autopilot.js); why: what the toast says
+  setAutopilot(mode, why) {
+    const ap = this.autopilot;
+    if (mode === ap.mode) return;
+    if (mode !== 'off' && this.run) return this.hud.toast('NO AUTOPILOT ON A RUN');
+    ap.set(mode);
+    this.hud.toast(mode === 'off' ? `AUTOPILOT OFF${why ? ` · ${why}` : ''}` : `AUTOPILOT · ${MODE_NAMES[mode]}`, mode === 'off' ? '' : 'cyan');
+    this.hud.autopilot(mode, ap.describe());
+    this.screens.updateAutopilot?.(mode);
+    this.sound.ui();
+  }
+
+  cycleAutopilot() {
+    this.setAutopilot(MODES[(MODES.indexOf(this.autopilot.mode) + 1) % MODES.length]);
   }
 
   // ---- flow ----
@@ -94,6 +122,7 @@ export class Game {
   }
 
   startRun(i) {
+    this.setAutopilot('off');
     this.sound.start();
     if (this.state === 'title') this.startFree();
     this.screens.closePause();
@@ -149,6 +178,7 @@ export class Game {
 
   // back to the title from the menu: the run ends, and the car parks where the title film expects it
   quitToTitle() {
+    this.setAutopilot('off');
     if (this.run) this.endRun();
     this.screens.closePause();
     this.kite.place(...this.attract.home);
@@ -178,6 +208,11 @@ export class Game {
 
     let c = overlay ? ZERO : this.input.poll();
     if (this.bot && !overlay) c = this.bot.controls(this);
+    else if (this.autopilot.on && !overlay && this.state === 'play') {
+      // the player's own hands on the controls take the car back
+      if (Math.abs(c.throttle) > 0.15 || Math.abs(c.steer) > 0.15 || Math.abs(c.lift) > 0.15 || c.boost) this.setAutopilot('off', 'YOU HAVE CONTROL');
+      else { c = this.autopilot.controls(dt); this.autopilot.tourTick(); }
+    }
     if (this.state === 'countdown') {
       this.run.count -= dt;
       const n = Math.ceil(this.run.count - 0.6);
@@ -227,6 +262,7 @@ export class Game {
     else if (a === 'help') { if (!o) this.pauseToggle('controls'); }
     else if (o === 'results') { if (a === 'confirm') this.screens.closeResults(); else if (a === 'reset') { this.screens.closeResults(); this.startRun(this.screens.lastRun); } }
     else if (a === 'agents') { if (!o) this.agents?.toggleList(); }
+    else if (a === 'autopilot') { if (!o || o === 'pause') this.cycleAutopilot(); }
     else if (o) return;
     else if (a === 'camera') this.rig.cycle();
     else if (a === 'reset') this.reset();
@@ -347,6 +383,7 @@ export class Game {
 
   updateHud(dt, c) {
     const k = this.kite, cam = this.camera;
+    if (this.autopilot.on && (this.apShown = (this.apShown || 0) + dt) > 0.25) { this.apShown = 0; this.hud.autopilot(this.autopilot.mode, this.autopilot.describe()); }
     cam.getWorldDirection(this.dir);
     const bearing = bearingOf(this.dir.x, this.dir.z);
     this.district = districtSeedAt(k.pos.x, k.pos.z);

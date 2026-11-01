@@ -31,6 +31,23 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | A waypoint | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are. |
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
 | `Esc` | The menu: resume, back to the street, end a run, or **quit to the main menu** (`Q`), where the car parks and the title film plays again. |
+| `P`, the AUTOPILOT chip (top right) or the menu | **Autopilot**: OFF, AGENT, CRUISE, TURBO, TOUR (below). Touch the controls and you have the car back. |
+
+**Autopilot** (`P` steps through the modes; the gamepad's right stick press too):
+
+- **AGENT** drives to the agents that need you (waiting on you first, then failed), by the satnav: its route on the
+  maps and the display ahead of the car. The long way it flies over the streets at 50 m; the last 150 m it comes
+  down to 6.5 m over the traffic, in the left lane, and lands at the agent's kerb, where `Enter` opens the
+  terminal. It waits there while the agent still needs you, then goes on to the next. With nobody waiting it calls
+  on the others in turn, for a little while each.
+- **CRUISE** wanders the street canyons at 95 m, at an easy pace, among the towers.
+- **TURBO** keeps to the avenues at 50 m and boosts down the long straights, past 100 m/s.
+- **TOUR** visits every district, nearest first, and laps the Zenith's block; at each, NEON FM says a word about
+  it (read out with RADIO VOICE on).
+
+The flying modes keep to the streets, which are open all the way up, and to heights between the sky lanes; they
+slow for corners, climb or dip for signs and awnings, pull out to the middle of the street before they take off,
+and back off if they ever get stuck. Starting a run, or any throttle, steering, lift or boost of yours, turns it off.
 
 Every agent's building has a neon sign with its name on the roof, at the street edge, lit in its status colour.
 Agents can also put up a **billboard**: a poster about their task (an image they made, or a title and caption the
@@ -222,7 +239,7 @@ server/        index.mjs (HTTP + SSE, no dependencies) · store.mjs (agents, out
 src/agents/    feed (SSE client) · placement (agent → building and kerb) · visuals (roof pillars, kerb rings)
                labels (name tags) · signs (neon name on the roof) · billboards (posters on the LED screens)
                panel (the G list) · terminal (xterm.js) · agents (glue to the game)
-src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car)
+src/game/      nav (the satnav's routing over the street grid) · navvis (the chevrons and the display ahead of the car) · autopilot (the car driving itself)
 src/audio/     audio (the synthesised world, NEON FM and the mix) · music (the radio's player and its sources) · voice (the agents and the DJ read out) · tts.worker (Supertonic 3)
 src/xr/        vr (session, seat, controllers, light profile) · panels (dash, list, terminal in canvases) · tags
 integrations/  claude-code (hooks, the city-billboard skill) · codex · generic (post-event.sh, billboard.sh, radio.sh) · radio (example DJs)

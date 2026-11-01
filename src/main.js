@@ -211,6 +211,7 @@ async function boot() {
     onReset: () => game.reset(),
     onEndRun: () => game.endRun(),
     onQuit: () => game.quitToTitle(),
+    onAutopilot: (mode) => game.setAutopilot(mode),
     onWaypoint: (x, z) => game.setWaypoint(x, z),
     onUi: () => { sound.start(); sound.ui(); },
     onSetting: (k) => applySetting(k),
@@ -303,6 +304,7 @@ async function boot() {
   }
   game = new Game({ city, kite, rig, camera, input, hud, screens, sound, music: radio, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
   game.onRadioLine = (who, text) => radio.speakLine(who, text);
+  hud.onAutopilot = () => { sound.start(); game.cycleAutopilot(); };
   game.onWelcome = () => radio.goLive();
   game.welcomeReady = () => !!agents.feed.synced && (!settings.voice || !settings.radioVoice || voice.ready);
   agents.bind(game);
