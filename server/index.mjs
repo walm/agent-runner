@@ -152,6 +152,11 @@ function fromTheGame(req) {
 // queued. The body is { text } (said), { choose: 1…9 } (an option picked in the game's list) or { answer: 'yes' |
 // 'no' } (its YES and NO for a choice whose options are not known).
 const inboxes = new Map(); // agent id -> [{ at, said, kind, keys }]
+const wakers = new Map(); // agent id -> Set(fn): long polls waiting on its inbox
+const listeners = new Map(); // agent id -> the id of the listener that is current
+const listening = new Map(); // agent id -> until when something polls its inbox (a time in the past: when it last did)
+// an agent whose own process reads its inbox (the Claude Code mod), now or a moment ago
+const listens = (id) => (listening.get(id) || 0) > Date.now() - 40000;
 const mocks = new Map(); // agent id -> answer(meant): the mock agents that take what is said (playground.mjs)
 let typing = Promise.resolve(); // one at a time: two lines must not interleave their keys
 function meaning(a, body) {
@@ -180,14 +185,24 @@ async function talk(id, body) {
     echo(note ? `mock agent, ${note}` : 'mock agent');
     return { ok: true, typed: 'mock agent', kind: meant.kind, label: meant.label };
   }
-  const queue = (why) => {
+  const put = () => {
     const list = inboxes.get(id) || [];
     list.push({ at: Date.now(), said: text, kind: meant.kind, keys: meant.keys });
     inboxes.set(id, list.slice(-20));
+    for (const wake of [...(wakers.get(id) || [])]) wake();
+  };
+  const queue = (why) => {
+    put();
     store.emit('input', { agent: id, said: text, kind: meant.kind });
     echo(`in its inbox (${why})`, false);
     return { ok: true, queued: true, why, kind: meant.kind, label: meant.label };
   };
+  // the Claude Code mod is listening: it answers the question or permission at hand, or sends a prompt
+  if (a.meta.via === 'mod' && listens(id)) {
+    put();
+    echo('Claude Code');
+    return { ok: true, typed: 'Claude Code', kind: meant.kind, label: meant.label };
+  }
   if (!TYPING) return queue('typing is off on this server');
   if (a.meta.input === 'inbox') return queue('it reads its inbox');
   const run = typing.then(async () => {
@@ -247,6 +262,8 @@ const server = http.createServer(async (req, res) => {
       if (body === undefined) return;
       const e = adapt(body, { host: url.searchParams.get('host') || undefined, pid: url.searchParams.get('pid') || undefined });
       if (e.error) return send(res, 400, { ok: false, error: e.error });
+      // sent by the Claude Code mod (integrations/claude-code-mod): it takes the driver's words from the inbox itself
+      if (url.searchParams.get('via') === 'mod') e.meta = { ...e.meta, via: 'mod' };
       const r = ingest(e);
       return send(res, r.ok ? 200 : 400, r);
     }
@@ -287,10 +304,28 @@ const server = http.createServer(async (req, res) => {
       if (body === undefined) return;
       return send(res, 200, await talk(decodeURIComponent(said[1]), body));
     }
+    // ?wait=<s> holds the request until something arrives (up to 30 s): the Claude Code mod listens this way
     const inbox = path.match(/^\/api\/agents\/(.+)\/inbox$/);
     if (inbox && req.method === 'GET') {
       if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
       const id = decodeURIComponent(inbox[1]);
+      const wait = Math.min(30, Math.max(0, +url.searchParams.get('wait') || 0));
+      // one listener per agent: a newer one (the mod reloaded, or the session resumed) retires the one before
+      const me = url.searchParams.get('listener') || '';
+      if (me && listeners.get(id) !== me) { listeners.set(id, me); for (const wake of [...(wakers.get(id) || [])]) wake(); }
+      listening.set(id, Date.now() + wait * 1000);
+      if (!inboxes.get(id)?.length && wait) {
+        await new Promise((resolve) => {
+          const t = setTimeout(done, wait * 1000);
+          function done() { clearTimeout(t); wakers.get(id)?.delete(done); resolve(); }
+          if (!wakers.has(id)) wakers.set(id, new Set());
+          wakers.get(id).add(done);
+          req.on('close', done);
+        });
+        listening.set(id, Date.now());
+      }
+      if (res.destroyed) return;
+      if (me && listeners.get(id) !== me) return send(res, 409, { ok: false, error: 'a newer listener took over' });
       const list = inboxes.get(id) || [];
       inboxes.delete(id);
       return send(res, 200, { ok: true, messages: list });
