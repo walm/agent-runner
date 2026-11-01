@@ -1,3 +1,4 @@
+import './core/yield.js';
 import * as THREE from 'three/webgpu';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { U, loadTex, loadArray } from './core/shared.js';
@@ -324,8 +325,8 @@ async function boot() {
       contexts.get = getContext;
     }
     renderer.setRenderTarget(prevTarget);
-    // WebKit (Safari, and the desktop app's web view) can leave some of these unsettled for good: past WARM_MS
-    // the boot goes on, and whatever is left compiles the first time it is drawn
+    // a safety net (WebKit took over a minute here before core/yield.js; it now takes ~6.5 s, Chrome ~3.3 s): past
+    // WARM_MS the boot goes on, and whatever is left compiles the first time it is drawn
     const t0 = performance.now();
     const settled = await Promise.race([Promise.all(jobs).then(() => true), new Promise((r) => setTimeout(() => r(false), WARM_MS))]);
     window.__nzBoot.warmMs = Math.round(performance.now() - t0);
