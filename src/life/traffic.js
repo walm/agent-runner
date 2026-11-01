@@ -16,6 +16,9 @@ import { footprintVsBox } from '../vehicle/kite.js';
 
 const _box = { x0: 0, x1: 0, z0: 0, z1: 0 };
 const _c = { nx: 0, nz: 0, d: 0, cx: 0, cz: 0 };
+const CELL = 16; // metres: the grid the active cars are kept in, so a spawn looks at its neighbours, not the pool
+const cellKey = (x, z) => Math.floor(x / CELL) * 73856093 ^ Math.floor(z / CELL) * 19349663;
+const SPAWNS_PER_FRAME = 24; // after the first fill, cars appear at the edge a few at a time
 
 // per axis; the other axis runs in the second half, after 2.5 s of all-red for the junction to clear
 const CYCLE = 38, GREEN = 14, AMBER = 2.5;
@@ -229,16 +232,40 @@ export class Traffic {
       const dc = Math.hypot(x - cam.x, z - cam.z);
       if (!fill && dc < R * 0.55) continue;
       if (this.avoid && Math.hypot(x - this.avoid.x, z - this.avoid.z) < 16) continue;
-      if (this.cars.some((o) => o.active && o.lane === ln && Math.abs(o.s - a) < 14)) continue;
+      if (this.byLane.get(ln.id)?.some((o) => Math.abs(o.s - a) < 14)) continue;
       // never in a junction or so close to one it could not stop for the lights, nor against a car on another lane
       if (ln.cross.some((c) => Math.abs(a - c.p) < c.w / 2 + 20)) continue;
-      if (this.cars.some((o) => o.active && Math.abs(o.x - x) < 8 && Math.abs(o.z - z) < 8)) continue;
+      if (this.nearby(x, z, 8)) continue;
       car.lane = ln;
       car.s = a;
-      car.vmax = (ln.axis === 'z' ? 1 : 1) * THREE.MathUtils.lerp(11, 17, this.rng());
+      car.x = x; car.z = z;
+      this.place(car);
+      car.vmax = THREE.MathUtils.lerp(11, 17, this.rng());
       car.v = car.vmax * 0.8;
       car.active = true;
       return true;
+    }
+    return false;
+  }
+
+  // an active car into this frame's lane list and cell grid
+  place(car) {
+    let arr = this.byLane.get(car.lane.id);
+    if (!arr) this.byLane.set(car.lane.id, (arr = []));
+    arr.push(car);
+    const k = cellKey(car.x, car.z);
+    let cell = this.cells.get(k);
+    if (!cell) this.cells.set(k, (cell = []));
+    cell.push(car);
+  }
+
+  // an active car within r (< CELL) of (x, z), by the grid
+  nearby(x, z, r) {
+    for (let gx = -1; gx <= 1; gx++) {
+      for (let gz = -1; gz <= 1; gz++) {
+        const cell = this.cells.get(cellKey(x + gx * CELL, z + gz * CELL));
+        if (cell) for (const o of cell) if (Math.abs(o.x - x) < r && Math.abs(o.z - z) < r) return true;
+      }
     }
     return false;
   }
@@ -253,19 +280,26 @@ export class Traffic {
     this.avoid = kite && kite.pos.y - kite.groundY < 3 ? kite.pos : null;
     // a believable density: about one car per 40 m of lane at street level, more when the view is wide
     const maxActive = Math.min(this.cars.length, Math.round((180 + (R - 260) * 0.58) * this.density));
+    // the cars still in range, by lane and by cell; then the gaps are filled from the pool
+    const byLane = this.byLane || (this.byLane = new Map()), cells = this.cells || (this.cells = new Map());
+    byLane.clear();
+    cells.clear();
     let active = 0;
-    const byLane = new Map();
     for (const car of this.cars) {
-      if (car.active) {
-        const ln = car.lane;
-        const dx = (ln.axis === 'z' ? ln.c : car.s) - camPos.x, dz = (ln.axis === 'z' ? car.s : ln.c) - camPos.z;
-        if (dx * dx + dz * dz > R * R * 1.3 || car.s < ln.a0 || car.s > ln.a1) car.active = false;
-      }
-      if (!car.active && (active >= maxActive || !this.spawn(car, camPos, R, fill))) continue;
-      if (++active > maxActive * 1.1) { car.active = false; continue; }
-      let arr = byLane.get(car.lane.id);
-      if (!arr) byLane.set(car.lane.id, (arr = []));
-      arr.push(car);
+      if (!car.active) continue;
+      const ln = car.lane;
+      car.x = ln.axis === 'z' ? ln.c : car.s; car.z = ln.axis === 'z' ? car.s : ln.c;
+      const dx = car.x - camPos.x, dz = car.z - camPos.z;
+      if (dx * dx + dz * dz > R * R * 1.3 || car.s < ln.a0 || car.s > ln.a1) { car.active = false; continue; }
+      active++;
+      this.place(car);
+    }
+    let spawns = fill ? Infinity : SPAWNS_PER_FRAME;
+    for (const car of this.cars) {
+      if (active >= maxActive || spawns <= 0) break;
+      if (car.active) continue;
+      spawns--;
+      if (this.spawn(car, camPos, R, fill)) active++;
     }
 
     // which junctions have a car in them, and from which axis (1 along z, 2 along x): nobody enters a junction
