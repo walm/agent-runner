@@ -209,6 +209,7 @@ async function boot() {
     onRun: (i) => game.startRun(i),
     onReset: () => game.reset(),
     onEndRun: () => game.endRun(),
+    onQuit: () => game.quitToTitle(),
     onWaypoint: (x, z) => game.setWaypoint(x, z),
     onUi: () => { sound.start(); sound.ui(); },
     onSetting: (k) => applySetting(k),

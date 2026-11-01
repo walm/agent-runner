@@ -50,6 +50,7 @@ export class Game {
   // ---- flow ----
   title() {
     this.state = 'title';
+    this.screens.atTitle = true;
     this.hud.show(false);
     this.screens.showTitle(true);
     // the title is a film of the city; the run markers are for the game
@@ -64,6 +65,7 @@ export class Game {
     this.screens.hideTitle();
     this.visuals.showBeacons(true);
     this.state = 'play';
+    this.screens.atTitle = false;
     this.rig.snap = true;
     this.hud.show(!!this.settings.hud);
     this.hud.setHints(this.touch);
@@ -145,6 +147,15 @@ export class Game {
     this.screens.closePause();
   }
 
+  // back to the title from the menu: the run ends, and the car parks where the title film expects it
+  quitToTitle() {
+    if (this.run) this.endRun();
+    this.screens.closePause();
+    this.kite.place(...this.attract.home);
+    this.sound.ui();
+    this.title();
+  }
+
   // ---- per frame ----
   update(dt) {
     this.clock += dt;
@@ -154,6 +165,9 @@ export class Game {
       this.attract.update(dt);
       for (const a of actions) if (a === 'confirm') this.startFree();
       k.syncModel(dt);
+      // the car is parked; the rain and the city follow the film's camera (only once a game has started the sound)
+      const y = this.camera.position.y;
+      this.sound.update(dt, { speed: 0, throttle: 0, boost: 0, air: false, alt: y, vy: 0, inCloud: U.inCloud.value, covered: false, parked: true });
       return;
     }
     if (this.state === 'loading') return;
@@ -207,6 +221,7 @@ export class Game {
   action(a) {
     const o = this.screens.open;
     if (a === 'pause' && (o === 'agents' || o === 'terminal')) this.agents.close();
+    else if (a === 'quit') { if (o === 'pause') this.quitToTitle(); }
     else if (a === 'pause') { if (o === 'map') this.screens.closeMap(); else if (o === 'results') this.screens.closeResults(); else this.pauseToggle(); }
     else if (a === 'map') this.mapToggle();
     else if (a === 'help') { if (!o) this.pauseToggle('controls'); }

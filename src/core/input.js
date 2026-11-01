@@ -4,7 +4,7 @@ const KEYS = {
   steer: [['KeyD', 'ArrowRight'], ['KeyA', 'ArrowLeft']],
   lift: [['Space'], ['KeyC']],
 };
-const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents' };
+const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit' };
 
 export class Input {
   constructor() {

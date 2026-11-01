@@ -155,7 +155,8 @@ export class Sound {
     return this.radio;
   }
 
-  // per-frame state: speed m/s, throttle, boost 0..1, air, altitude, height above ground, in cloud 0..1, paused
+  // per-frame state: speed m/s, throttle, boost 0..1, air, altitude, height above ground, in cloud 0..1, paused,
+  // parked (the engine off, as on the title)
   update(dt, s) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, T = 0.06;
@@ -168,7 +169,7 @@ export class Sound {
     this.windF.frequency.setTargetAtTime(250 + w * 1500, t, T);
     this.highG.gain.setTargetAtTime(above * 0.06 + s.inCloud * 0.05, t, 0.4);
 
-    const on = s.paused ? 0 : 1;
+    const on = s.paused || s.parked ? 0 : 1;
     const rpm = Math.min(1, s.speed / 125) * 0.75 + Math.abs(s.throttle) * 0.15 + s.boost * 0.2;
     const f = 52 + rpm * 120;
     this.osc1.frequency.setTargetAtTime(f, t, T);

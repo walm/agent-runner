@@ -12,6 +12,7 @@ export class Attract {
     this.fade = fade;
     const k = kite.pos.clone();
     const fwd = kite.fwd.clone();
+    this.home = [k.x, k.y, k.z, kite.yaw]; // where the car is parked for the film, and is put back for it
     const side = new THREE.Vector3(-fwd.z, 0, fwd.x);
     const av = city.xs.filter((l) => l.w >= 24).reduce((a, l) => (Math.abs(l.p + 96) < Math.abs(a.p + 96) ? l : a));
     const V = (x, y, z) => new THREE.Vector3(x, y, z);

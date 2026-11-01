@@ -18,6 +18,7 @@ const CONTROLS = [
   ['Agents list', 'G'],
   ['Terminal at an agent\'s door', 'ENTER'],
   ['Menu', 'ESC'],
+  ['Quit to main menu (in the menu)', 'Q'],
   ['Gamepad', 'RT/LT · L-stick · R-stick lift · RB boost'],
 ];
 
@@ -39,11 +40,11 @@ const CREDITS = [
 ];
 
 export class Screens {
-  constructor(root, { settings, runs, onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onUi, mapImage }) {
+  constructor(root, { settings, runs, onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onQuit, onUi, mapImage }) {
     this.root = root;
     this.settings = settings;
     this.runs = runs;
-    this.cb = { onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onUi };
+    this.cb = { onStart, onResume, onRun, onSetting, onReset, onWaypoint, onEndRun, onQuit, onUi };
     this.mapImage = mapImage;
     this.open = null;
     root.insertAdjacentHTML('beforeend', `
@@ -109,6 +110,7 @@ export class Screens {
     else if (a === 'run') cb.onRun(+data.i);
     else if (a === 'reset') cb.onReset();
     else if (a === 'endrun') { this.closePause(); cb.onEndRun(); }
+    else if (a === 'quit') cb.onQuit();
     else if (a === 'closemap') this.closeMap();
     else if (a === 'set') { this.settings[data.k] = isNaN(+data.v) ? data.v : +data.v; cb.onSetting(data.k); this.showPause(this.tab); }
     else if (a === 'closeres') this.closeResults();
@@ -117,8 +119,12 @@ export class Screens {
   }
 
   showTitle(on) {
+    clearTimeout(this.titleOut);
     this.title.classList.toggle('hidden', !on);
     if (!on) return;
+    // shown again from the menu: from dark, and the tubes catch again
+    this.title.classList.remove('out');
+    this.title.querySelectorAll('.on').forEach((e) => e.classList.remove('on'));
     const spans = this.title.querySelectorAll('.t-title span');
     // ignite the words one by one, like tubes catching
     spans.forEach((s, i) => setTimeout(() => s.classList.add('on'), 500 + i * 420));
@@ -127,7 +133,7 @@ export class Screens {
 
   hideTitle() {
     this.title.classList.add('out');
-    setTimeout(() => this.title.classList.add('hidden'), 800);
+    this.titleOut = setTimeout(() => this.title.classList.add('hidden'), 800);
   }
 
   // the voice's download progress or state beside its setting; rerender when the setting itself changed under it
@@ -159,6 +165,7 @@ export class Screens {
           ? `<div class="runc" data-act="reset"><div class="ix">↺</div><div class="nm"><small>RESTART RUN · R</small></div><div></div></div>
         <div class="runc" data-act="endrun"><div class="ix">×</div><div class="nm"><small>END RUN</small></div><div></div></div>`
           : `<div class="runc" data-act="reset"><div class="ix">↺</div><div class="nm"><small>BACK TO THE STREET · R</small></div><div></div></div>`}
+        ${this.atTitle ? '' : `<div class="runc" data-act="quit"><div class="ix">⏏</div><div class="nm"><small>QUIT TO MAIN MENU · Q</small></div><div></div></div>`}
       </div>`;
     } else if (tab === 'runs') {
       body = `<div class="runs">${this.runs.list.map((r, i) => {

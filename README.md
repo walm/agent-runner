@@ -30,6 +30,7 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | `M` | City map with every agent marked by status. Click to set a waypoint. |
 | A waypoint | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are. |
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
+| `Esc` | The menu: resume, back to the street, end a run, or **quit to the main menu** (`Q`), where the car parks and the title film plays again. |
 
 Every agent's building has a neon sign with its name on the roof, at the street edge, lit in its status colour.
 Agents can also put up a **billboard**: a poster about their task (an image they made, or a title and caption the
