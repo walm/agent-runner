@@ -302,3 +302,7 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; background: v
   .h-run { top: 136px; left: var(--gutter); right: auto; transform: scale(0.7); transform-origin: left top; }
   .h-prompt { bottom: calc(var(--gutter) + 30px); }
 }
+
+/* ---------- the gamepad's highlight in the menus (ui/padnav.js) ---------- */
+.pad-sel { outline: 2px solid var(--cyan); outline-offset: 2px; box-shadow: 0 0 16px rgba(59, 232, 255, 0.45); }
+.runc.pad-sel, .trk.pad-sel { background: rgba(59, 232, 255, 0.1); }

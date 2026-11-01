@@ -10,6 +10,7 @@ import { TerminalView, ago } from './terminal.js';
 import { AgentSigns } from './signs.js';
 import { AgentBillboards } from './billboards.js';
 import { esc } from '../core/esc.js';
+import { PAD } from '../core/input.js';
 import './agents.css';
 
 const DOCK_R = 7; // how close to the kerb ring counts as arrived
@@ -269,8 +270,22 @@ export class AgentLayer {
     this.pendingWarp();
   }
 
+  // a gamepad in the list (game.js calls it while the list is open): the d-pad or the left stick chooses, held to
+  // keep moving; A drives there, Y warps there, B or X closes
+  padList(input, dt) {
+    const e = input.padEdges, h = input.padHeld, ax = input.padAxes;
+    const dir = h[PAD.DOWN] ? 1 : h[PAD.UP] ? -1 : Math.abs(ax[1]) > 0.5 ? Math.sign(ax[1]) : 0;
+    if (!dir) this.listHold = 0;
+    else if (dir !== this.listHold || (this.listRepeat -= dt) <= 0) { this.panel.move(dir); this.listRepeat = dir === this.listHold ? 0.12 : 0.4; this.listHold = dir; }
+    const id = this.panel.selected();
+    if (e.has(PAD.A) && id) this.drive(id);
+    else if (e.has(PAD.Y) && id) this.warp(id);
+    else if (e.has(PAD.B) || e.has(PAD.X) || e.has(PAD.START)) this.close();
+  }
+
   // a gamepad in the terminal (the car is parked meanwhile): either stick scrolls, faster the further it is pushed;
-  // the d-pad steps a line, held to repeat; LB / RB a page; B closes. Standard mapping: 1 B, 4 LB, 5 RB, 12/13 d-pad.
+  // the d-pad steps a line, held to repeat; LB / RB a page; A or B closes. Standard mapping: 0 A, 1 B, 4 LB, 5 RB,
+  // 12/13 d-pad.
   pad() {
     const now = performance.now(), dt = Math.min(0.1, (now - (this.padT || now)) / 1000);
     this.padT = now;
@@ -294,8 +309,8 @@ export class AgentLayer {
       }
       if (edge(4)) this.term.page(-1);
       if (edge(5)) this.term.page(1);
-      const close = edge(1);
-      for (const i of [1, 4, 5, 12, 13]) prev[`${p.index}:${i}`] = btn(i);
+      const close = edge(0) || edge(1);
+      for (const i of [0, 1, 4, 5, 12, 13]) prev[`${p.index}:${i}`] = btn(i);
       if (close) { this.close(); return; }
     }
   }

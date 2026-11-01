@@ -25,14 +25,14 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 
 | | |
 |---|---|
-| `G` or click the **AGENTS** counter | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. |
+| `G` or click the **AGENTS** counter (X on a gamepad) | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. On a gamepad: the stick or d-pad chooses, A drives, Y warps, B closes. |
 | Pull up in the ring at the kerb, or fly into the agent's beam | A card shows who the agent is and what it last said; `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `↑ ↓` `PgUp PgDn` `Home End` (or a gamepad's sticks, d-pad, LB / RB) read back; `Esc` (or B) to leave. |
-| `M` | City map with every agent marked by status. Click to set a waypoint. |
+| `M` (Back on a gamepad) | City map with every agent marked by status. Click to set a waypoint; on a gamepad the left stick pans, the triggers zoom and A sets the waypoint at the crosshair. |
 | A waypoint | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are. |
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
 | `Esc` | The menu: resume, back to the street, end a run, or **quit to the main menu** (`Q`), where the car parks and the title film plays again. |
 | `P`, the AUTOPILOT chip (top right) or the menu | **Autopilot**: OFF, AGENT, CRUISE, TURBO, TOUR (below). Touch the controls and you have the car back. |
-| Gamepad | Triggers thrust and brake, left stick steers, right stick climbs and descends, RB boosts. **Start** opens and closes the menu (and starts the game from the title), Back the map, Y the camera, X the horn, d-pad up the next track, right stick press the autopilot. |
+| Gamepad | Everything works from the pad. Driving: triggers thrust and brake, left stick steers, right stick climbs and descends, RB boosts. Buttons: **A** does what `Enter` does (the terminal at an agent's door, a run at its beacon), **B** horn, **X** the agents list, **Y** camera, **Start** the menu (and the game from the title), **Back** the map, right stick press the autopilot. The d-pad is the radio: up on and off, left and right the previous and next track, down the next station. In the title, the menu and the results, the d-pad or the left stick moves a highlight, A picks, B goes back, LB and RB step the tabs, and left and right move a slider. The HUD's hints switch to the pad's buttons when it was touched last. |
 
 Keys with a modifier held (`Cmd`/`Ctrl`/`Alt`) are left to the browser and the system: reloading with `Cmd R` does not reset the
 car, and `Cmd M` minimises instead of opening the map.

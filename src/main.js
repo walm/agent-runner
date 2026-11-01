@@ -25,6 +25,7 @@ import './ui/base.css';
 import './ui/ui.css';
 import { Hud } from './ui/hud.js';
 import { Screens } from './ui/screens.js';
+import { PadNav } from './ui/padnav.js';
 import { drawCityMap } from './ui/citymap.js';
 import { createTouch, isTouch } from './ui/touch.js';
 import { Sound } from './audio/audio.js';
@@ -306,7 +307,7 @@ async function boot() {
     if (k === 'hud' || k === 'all') { hud.show(!!settings.hud && game && game.state !== 'title'); }
     if (k === 'shake' || k === 'all') rig.shakeScale = settings.shake;
   }
-  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, music: radio, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav });
+  game = new Game({ city, kite, rig, camera, input, hud, screens, sound, music: radio, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav, padnav: new PadNav() });
   game.onRadioLine = (who, text) => radio.speakLine(who, text);
   hud.onAutopilot = () => { sound.start(); game.cycleAutopilot(); };
   game.onWelcome = () => radio.goLive();

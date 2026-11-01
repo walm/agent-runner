@@ -6,10 +6,9 @@ const KEYS = {
 };
 const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit', KeyP: 'autopilot' };
 const PREVENT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
-// standard gamepad mapping: Y camera, back map, start the menu (or the game, from the title), d-pad up next track,
-// X horn, right stick press autopilot
-const PAD_ACTIONS = [[3, 'camera'], [8, 'map'], [9, 'start'], [12, 'next'], [2, 'horn'], [11, 'autopilot']];
 const NONE = { throttle: 0, steer: 0, lift: 0, boost: false };
+// the gamepad's buttons, standard mapping (what each does is the game's to decide, by what is open: game.js)
+export const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, BACK: 8, START: 9, LS: 10, RS: 11, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 // a key pressed while typing in a field (a settings slider, say) belongs to the field, not to the car
 const inField = (e) => { const t = e.target; return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); };
@@ -37,6 +36,11 @@ export class Input {
     // the key-up is lost when the page goes behind another window or tab: nothing stays pressed
     addEventListener('blur', () => this.down.clear());
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.down.clear(); });
+    // the gamepad this frame, for the menus and the HUD: which buttons went down (edges), which are held, the sticks
+    this.padEdges = new Set();
+    this.padHeld = [];
+    this.padAxes = [0, 0, 0, 0];
+    this.padTrig = [0, 0]; // left and right trigger, 0..1
     this.padPrev = [];
   }
 
@@ -50,21 +54,30 @@ export class Input {
     let throttle = this.axis('throttle'), steer = this.axis('steer'), lift = this.axis('lift');
     let boost = this.down.has('ShiftLeft') || this.down.has('ShiftRight');
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    this.padEdges.clear();
+    const held = this.padHeld, axes = this.padAxes;
+    held.length = 0;
+    axes[0] = axes[1] = axes[2] = axes[3] = 0;
+    this.padTrig[0] = this.padTrig[1] = 0;
     for (const p of pads) {
       if (!p) continue;
       const dz = (v) => (Math.abs(v) < 0.12 ? 0 : v);
       const rt = p.buttons[7]?.value || 0, lt = p.buttons[6]?.value || 0;
       const ax = dz(p.axes[0] || 0), ry = dz(p.axes[3] || 0);
       if (rt || lt || ax || ry) this.lastDevice = 'gamepad';
+      this.padTrig[0] = this.padTrig[0] || lt; this.padTrig[1] = this.padTrig[1] || rt;
       throttle = throttle || rt - lt;
       steer = steer || ax;
-      lift = lift || -ry || (p.buttons[0]?.pressed ? 1 : 0) - (p.buttons[1]?.pressed ? 1 : 0);
+      lift = lift || -ry;
       boost = boost || !!p.buttons[5]?.pressed || !!p.buttons[10]?.pressed;
-      for (const [b, a] of PAD_ACTIONS) {
-        const pressed = !!p.buttons[b]?.pressed;
-        if (pressed && !this.padPrev[b]) this.queue.push(a);
+      for (let b = 0; b < 16; b++) {
+        const v = p.buttons[b]?.value || (p.buttons[b]?.pressed ? 1 : 0);
+        const pressed = v > 0.5;
+        if (pressed) { held[b] = true; this.lastDevice = 'gamepad'; }
+        if (pressed && !this.padPrev[b]) this.padEdges.add(b);
         this.padPrev[b] = pressed;
       }
+      for (let i = 0; i < 4; i++) axes[i] = axes[i] || dz(p.axes[i] || 0);
     }
     for (const t of [this.touch, this.xr]) {
       throttle = throttle || t.throttle;

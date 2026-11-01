@@ -13,7 +13,7 @@ export class AgentPanel {
         <div class="sheet">
           <h2>AGENTS IN THE CITY</h2>
           <div class="agrows"></div>
-          <div class="agfoot"><span class="conn"></span><span><span class="key">↑ ↓</span>CHOOSE <span class="key">ENTER</span>DRIVE <span class="key">W</span>WARP <span class="key">ESC</span>CLOSE</span></div>
+          <div class="agfoot"><span class="conn"></span><span><span class="key">↑ ↓</span>CHOOSE <span class="key">ENTER</span>DRIVE <span class="key">W</span>WARP <span class="key">ESC</span>CLOSE · <span class="key">PAD</span>STICK · A DRIVE · Y WARP · B CLOSE</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#aglist');
