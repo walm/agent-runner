@@ -32,6 +32,10 @@ Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts wit
 | WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
 | `Esc` | The menu: resume, back to the street, end a run, or **quit to the main menu** (`Q`), where the car parks and the title film plays again. |
 | `P`, the AUTOPILOT chip (top right) or the menu | **Autopilot**: OFF, AGENT, CRUISE, TURBO, TOUR (below). Touch the controls and you have the car back. |
+| Gamepad | Triggers thrust and brake, left stick steers, right stick climbs and descends, RB boosts. **Start** opens and closes the menu (and starts the game from the title), Back the map, Y the camera, X the horn, d-pad up the next track, right stick press the autopilot. |
+
+Keys with a modifier held (`Cmd`/`Ctrl`/`Alt`) are left to the browser and the system: reloading with `Cmd R` does not reset the
+car, and `Cmd M` minimises instead of opening the map.
 
 **Autopilot** (`P` steps through the modes; the gamepad's right stick press too):
 
@@ -88,6 +92,11 @@ and the calendar every 45 seconds, with music picked to go with it.
 
 **Volume**: Settings has MASTER, BACKGROUND (rain, the city, the car), RADIO / MUSIC and VOICE (the agents and the
 DJ), each on its own.
+
+**Quality** (Settings): AUTO steps the rendering resolution down when frames are missed and probes back up when
+they are clean; the wet street's mirror and the car's reflection probe (each another drawing of the city) follow
+it down. HIGH, MEDIUM and LOW fix it. The HUD is not drawn while a menu covers it or while it is off, and never in a
+headset.
 
 Status colours: **cyan** working · **magenta** pulsing, needs you · **red** error · **green** done · **amber** idle · **grey** offline (silent for 15 minutes).
 

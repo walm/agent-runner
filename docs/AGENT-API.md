@@ -40,6 +40,8 @@ An agent not heard from for 15 minutes shows as `offline`. One that is silent fo
 | `DELETE /api/radio` | The DJ steps off the air. |
 | `GET /api/radio` | `{ radio: { dj, category, track }, categories, recent }`: what is on, and the last announcements. |
 | `GET /api/music` | `{ categories, tracks: [{ id, title, artist, category, source, cached, url }] }` |
+| `GET /api/music/file?id=…` | A track's audio, with byte ranges (`HEAD` fetches a catalogue track into the cache ahead of time). |
+| `GET /api/voice/<file>` | A file of the voice model, from the server's cache (downloaded from Hugging Face on the first request). Only the pinned revision's files. |
 | `GET /api/agents` | `[{ id, name, harness, status, last, meta, firstSeen, lastSeen, seq }]` |
 | `GET /api/agents/:id/output` | `{ id, text, seq }`: the buffered output. `seq` counts every character ever appended. |
 | `GET /api/stream` | Server-sent events: `snapshot` (the list) and `billboards` (the posters) on connect, then `agent` (`{ agent, prev, notable }`), `output` (`{ id, text, seq }`), `billboard` (one poster, or `{ agent, removed: true }`), `remove` (`{ id }`), `radio` (the radio's state, on connect too), `radio-announce` (`{ id, text, from, dj, when }`), `radio-skip` and `ping` every 15 s. |
@@ -132,8 +134,8 @@ curl -s -X DELETE 'localhost:5210/api/billboard?agent=my-bot:prod'
 
 The game has a radio (the RADIO menu): NEON FM, the city's own synthesised score, or the music library, which is
 a set of CC0 tracks plus your own files. One agent at a time can be its **DJ**: it picks the music by category and
-puts announcements on the air. With AGENT VOICE on, the game reads them out in the agent voice, with the music
-ducked under it (Settings > VOICE and RADIO VOICE), and otherwise they show as radio text. What the DJ says is up to you and your agent: a summary
+puts announcements on the air. With RADIO VOICE on, the game reads them out in the agent voice, with the music
+ducked under it (Settings > VOICE, then RADIO VOICE), and otherwise they show as radio text. What the DJ says is up to you and your agent: a summary
 of a Slack channel, the pull requests waiting for review, a deploy that finished, the weather.
 
 `POST /api/radio`, as JSON:

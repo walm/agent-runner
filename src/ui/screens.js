@@ -22,6 +22,7 @@ const CONTROLS = [
   ['Menu', 'ESC'],
   ['Quit to main menu (in the menu)', 'Q'],
   ['Gamepad', 'RT/LT · L-stick · R-stick lift · RB boost'],
+  ['Gamepad menu / map', 'START · BACK'],
 ];
 
 const REPO = 'https://github.com/billpwchan/neon-zenith';
