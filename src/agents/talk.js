@@ -195,6 +195,17 @@ export class Talk {
     this.result(r, typeof p === 'number' ? `OPTION ${p}` : p.toUpperCase());
   }
 
+  // words typed in the terminal's box: read by the server as if said
+  async send(agent, text) {
+    if (!agent || this.phase !== 'idle') return;
+    this.phase = 'sending';
+    this.heard = text;
+    this.show();
+    const r = await this.say(agent.id, { text, typed: true });
+    this.phase = 'idle';
+    this.result(r, `“${text}”`);
+  }
+
   result(r, what) {
     if (r.ok && r.typed) this.show({ text: `${what} → ${r.label} · ${r.typed.toUpperCase()}`, tone: 'good' });
     else if (r.ok && r.queued) this.show({ text: `${what} → INBOX · ${r.why}`, tone: 'warn', hold: 10000 });

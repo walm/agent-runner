@@ -1,0 +1,14 @@
+{
+  "name": "agent-runner",
+  "owner": {
+    "name": "Agent Runner"
+  },
+  "description": "Agent Runner's mod for Claude Code: your sessions in the neon city, answered from the game.",
+  "plugins": [
+    {
+      "name": "agent-runner",
+      "source": "./integrations/claude-code-mod/agent-runner",
+      "description": "Puts this Claude Code session in Agent Runner's city, and lets the driver answer it from the game: messages, questions and permission prompts."
+    }
+  ]
+}

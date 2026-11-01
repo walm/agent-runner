@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { intent, choiceOf, clean } from '../src/agents/intent.js';
 import { claudeCode, codex } from './adapters.mjs';
+import { markdown, visible } from './markdown.mjs';
+import { wrapLine, wrapChunk } from '../src/agents/wrap.js';
 
 const MENU = { status: 'waiting', prompt: 'menu' };
 const keys = (said, at) => intent(said, at).keys;
@@ -83,12 +85,53 @@ test('the hooks say what the agent shows, and where it runs', () => {
   assert.equal(perm.meta.choices.length, 3);
   assert.equal(claudeCode(hook({ hook_event_name: 'Notification', message: 'Claude needs your permission to use Bash' })).meta.prompt, 'menu');
   assert.equal(claudeCode(hook({ hook_event_name: 'Notification', message: 'Claude is waiting for your input' })).meta.prompt, 'input');
-  assert.equal(claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })).message, 'Allow Bash(rm -rf build)?');
+  assert.equal(claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'Bash', tool_input: { command: 'rm -rf build' } })).last, 'Allow Bash(rm -rf build)?');
+  // the question tool's own permission request keeps the question's options
+  const qperm = claudeCode(hook({ hook_event_name: 'PermissionRequest', tool_name: 'AskUserQuestion', tool_input: {} }));
+  assert.equal(qperm.meta.prompt, 'menu');
+  assert.equal('choices' in qperm.meta, false);
+  assert.equal('choices' in claudeCode(hook({ hook_event_name: 'Notification', notification_type: 'permission_prompt', message: 'Claude needs your permission to use AskUserQuestion' })).meta, false);
   // back at work: no prompt, and a bad pid is left out
   const work = claudeCode(hook({ hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_input: { command: 'ls' } }), { pid: 'x' });
   assert.equal(work.meta.prompt, null);
   assert.equal(work.meta.pid, undefined);
   assert.equal(claudeCode(hook({ hook_event_name: 'PostToolUse', tool_name: 'Bash' })).status, 'working');
   assert.equal(claudeCode(hook({ hook_event_name: 'Stop' })).meta.prompt, 'input');
+  // the turn's reply: written to the terminal, its first line the agent's last word
+  const done = claudeCode(hook({ hook_event_name: 'Stop', last_assistant_message: '## Amy\n\nAmy is a **voice** assistant in `src/agent`.' }));
+  assert.equal(done.last, 'Amy');
+  assert.match(done.text, /⏺/);
+  assert.match(done.text, /\x1b\[1mvoice\x1b\[0m/);
+  assert.match(done.text, /\x1b\[36msrc\/agent\x1b\[0m/);
+  assert.equal(claudeCode(hook({ hook_event_name: 'Stop' })).last, 'Finished, waiting for the next prompt');
+  // a subagent's end is no last word
+  assert.equal(claudeCode(hook({ hook_event_name: 'SubagentStop' })).last, undefined);
   assert.equal(codex({ type: 'agent-turn-complete', cwd: '/w' }, { pid: 77 }).meta.pid, 77);
+});
+
+test('markdown for the terminal', () => {
+  const plain = (lines) => lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+  const t = plain(markdown('| A | B |\n|---|--:|\n| one | 2 |\n| a much longer cell than the rest | 30 |', { width: 30 }));
+  assert.equal(t[0][0], '┌');
+  assert.ok(t.every((l) => l.length === t[0].length), 'every row as wide as the frame');
+  assert.ok(t[0].length <= 30, 'the table fits its width');
+  assert.ok(t.some((l) => /│\s+30 │$/.test(l)), 'a right-aligned column');
+  const m = plain(markdown('# Title\n- [x] done\n- item\n1. first\n> quoted\n---\n```js\nconst a = **b**;\n```\nsee [docs](http://x)'));
+  assert.deepEqual(m, ['Title', '☑ done', '• item', '1. first', '▌ quoted', '─'.repeat(40), '┌ js', '│ const a = **b**;', 'see docs (http://x)']);
+  assert.equal(visible(markdown('**bold** and `code` and *it* and ~~no~~')[0]), 'bold and code and it and no'.length);
+  assert.equal(plain(markdown('snake_case_name stays and 2*3*4 too'))[0], 'snake_case_name stays and 2*3*4 too');
+});
+
+test('the terminal breaks long lines at spaces', () => {
+  const rows = (s) => s.replace(/\x1b\[[0-9;]*m/g, '').split('\r\n');
+  const r = rows(wrapLine('\x1b[1m⏺\x1b[0m one two three four five six seven eight nine ten', 20));
+  assert.ok(r.every((l) => l.length <= 20));
+  assert.ok(r.slice(1).every((l) => l.startsWith('  ')), 'under the reply, not under the marker');
+  assert.ok(r.every((l) => !/\S$/.test(l) || l.trim().split(' ').every((w) => 'one two three four five six seven eight nine ten ⏺'.split(' ').includes(w))), 'no word is cut');
+  assert.equal(wrapLine('short', 20), 'short');
+  assert.equal(wrapLine('│ a table row that is much too long for the width │', 20).includes('\r\n'), false);
+  assert.equal(wrapLine('\x1b[2K redraw line that is long enough to need a break', 20).includes('\r\n'), false);
+  const st = { open: false };
+  assert.equal(wrapChunk('a line that is long enough to wrap here\r\nopen end that is long enough', 20, st).split('\r\n').pop(), 'open end that is long enough');
+  assert.equal(st.open, true);
 });

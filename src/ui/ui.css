@@ -116,6 +116,8 @@
 .h-run .rd.ahead { color: #6dffb0; }
 .h-run .rd.behind { color: #ff8a9a; }
 .h-toast { position: absolute; left: 50%; top: 23%; transform: translateX(-50%); text-align: center; }
+/* over the menus and the agent's terminal (z-index 25) too: an agent finishing or needing you is told wherever you are */
+#hud:not(.off) .h-toast { z-index: 26; }
 .toast { font-size: 13px; letter-spacing: 0.42em; color: var(--ink); text-shadow: 0 0 12px rgba(0, 0, 0, 0.9); animation: toast 2.8s ease forwards; margin-bottom: 10px; white-space: nowrap; }
 .toast.cyan { color: var(--cyan); }
 .toast.mag { color: #ff9cf7; }

@@ -4,7 +4,9 @@
 //
 // An event is one flat object. Only `agent` is required; every other field is optional and independent, so a
 // hook can say "waiting, and here is why" in one POST:
-//   { agent, name?, harness?, status?, message?, text?, meta?, end? }
+//   { agent, name?, harness?, status?, message?, last?, text?, meta?, end? }
+// `message` is the agent's last line and is written to its terminal too; `last` only sets the line (for an adapter
+// whose `text` already shows it).
 
 export const STATUSES = new Set(['idle', 'working', 'waiting', 'error', 'done']);
 // a status change into one of these is worth interrupting the driver for
@@ -39,6 +41,7 @@ export function validate(e) {
   if (e.status !== undefined && !STATUSES.has(e.status)) return { ok: false, error: `"status" must be one of ${[...STATUSES].join(', ')}` };
   if (e.text !== undefined && typeof e.text !== 'string') return { ok: false, error: '"text" must be a string' };
   if (e.message !== undefined && typeof e.message !== 'string') return { ok: false, error: '"message" must be a string' };
+  if (e.last !== undefined && typeof e.last !== 'string') return { ok: false, error: '"last" must be a string' };
   let meta;
   if (e.meta !== undefined) {
     if (!e.meta || typeof e.meta !== 'object' || Array.isArray(e.meta)) return { ok: false, error: '"meta" must be an object' };
@@ -53,6 +56,7 @@ export function validate(e) {
       harness: str(e.harness, LIMITS.harness)?.toLowerCase(),
       status: e.status,
       message: str(e.message, LIMITS.message),
+      last: str(e.last, LIMITS.message),
       text: typeof e.text === 'string' && e.text ? e.text.slice(0, LIMITS.text) : undefined,
       end: e.end === true,
     },
@@ -121,6 +125,7 @@ export class Store {
       a.last = e.message.split('\n')[0].slice(0, 300);
       this.append(a, `\x1b[2m› ${e.message.replace(/\n+$/, '')}\x1b[0m\n`);
     }
+    if (e.last) a.last = e.last.split('\n')[0].slice(0, 300);
     if (e.text) this.append(a, e.text);
     if (e.end) { a.status = 'done'; a.ended = t; }
     const notable = a.status !== prev && NOTABLE.has(a.status);

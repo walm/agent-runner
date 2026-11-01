@@ -1,0 +1,24 @@
+{
+  "name": "agent-runner",
+  "version": "0.1.0",
+  "description": "Puts this Claude Code session in Agent Runner's city, and lets the driver answer it from the game: messages, questions and permission prompts.",
+  "author": {
+    "name": "Agent Runner"
+  },
+  "icon": "./.claude-plugin/icon.png",
+  "userConfig": {
+    "url": {
+      "type": "string",
+      "title": "Agent Runner server",
+      "description": "Where the Agent Runner server listens. The mod waits quietly until it answers.",
+      "default": "http://127.0.0.1:5210"
+    },
+    "token": {
+      "type": "string",
+      "title": "Token",
+      "description": "The server's AGENT_CITY_TOKEN, when it has one.",
+      "default": "",
+      "sensitive": true
+    }
+  }
+}

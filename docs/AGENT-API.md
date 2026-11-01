@@ -44,7 +44,7 @@ An agent not heard from for 15 minutes shows as `offline`. One that is silent fo
 | `GET /api/voice/<file>` | A file of the voice model, from the server's cache (downloaded from Hugging Face on the first request). Only the pinned revision's files. |
 | `GET /api/agents` | `[{ id, name, harness, status, last, meta, firstSeen, lastSeen, seq }]` |
 | `POST /api/agents/:id/input` | The game only: `{ text }` (what the driver said), `{ choose: 1…9 }` (an option picked in the game's list) or `{ answer: 'yes' \| 'no' }`. Typed into the agent's terminal or put in its inbox (see [Talking to an agent](#talking-to-an-agent)). Returns `{ ok, kind, label, typed? , queued?, why? }`. |
-| `GET /api/agents/:id/inbox` | `{ ok, messages: [{ at, said, kind, keys }] }`: what was said to the agent and could not be typed. Reading empties it. |
+| `GET /api/agents/:id/inbox?wait=<s>&listener=<id>` | `{ ok, messages: [{ at, said, kind, keys }] }`: what was said to the agent and not typed. Reading empties it. `wait` (up to 30) holds the request until something arrives; `listener` names the reader, and a newer one makes the server answer the older one `409`. |
 | `GET /api/stt/<file>` | The speech model the game hears the driver with (Whistle and the Needle engine), from the server's cache. |
 | `GET /api/agents/:id/output` | `{ id, text, seq }`: the buffered output. `seq` counts every character ever appended. |
 | `GET /api/stream` | Server-sent events: `snapshot` (the list) and `billboards` (the posters) on connect, then `agent` (`{ agent, prev, notable }`), `output` (`{ id, text, seq }`), `billboard` (one poster, or `{ agent, removed: true }`), `remove` (`{ id }`), `radio` (the radio's state, on connect too), `radio-announce` (`{ id, text, from, dj, when }`), `radio-skip`, `input` (`{ agent, said, kind }`, when something said went to an inbox) and `ping` every 15 s. |
@@ -202,6 +202,11 @@ What the server needs to know, in `meta`:
 | `choices` | The options' labels, in order, so an option can be picked by its own words. |
 | `tmux` | A tmux pane id (`%3`), to name the pane yourself. |
 | `input` | `inbox`: never type, always queue. |
+
+**The Claude Code mod** ([integrations/claude-code-mod](../integrations/claude-code-mod/agent-runner/README.md)) posts
+Claude Code's own hook payloads to `/api/hooks/claude-code?via=mod`, which marks the agent `meta.via: mod`, and
+long-polls its inbox. While it listens (it polled in the last 40 seconds) the driver's words go to the inbox and
+nowhere else, and the mod acts on them inside Claude Code.
 
 An agent that is not in a terminal (a service, a bot, an agent on another machine) reads its inbox instead:
 `GET /api/agents/<id>/inbox` returns what was said, with the server's reading of it (`kind`: `choose`, `yes`, `no`,

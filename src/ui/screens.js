@@ -20,6 +20,7 @@ const CONTROLS = [
   ['Agents list', 'G'],
   ['Terminal at an agent\'s door', 'ENTER'],
   ['Talk to the agent (in its terminal): hold, speak, let go', 'SPACE · GAMEPAD X'],
+  ['Type to the agent (in its terminal)', 'ENTER · TYPE · ENTER SENDS · ESC LEAVES'],
   ['Pick an option while it waits at a choice', '1–9 · CLICK · GAMEPAD D-PAD + A'],
   ['Say at its prompt', '“SELECT 2” · “SELECT B” · “YES” · “GO” · “NO” · “STOP” · ANY SENTENCE'],
   ['Autopilot: off, agent, cruise, turbo, tour', 'P · R-STICK PRESS'],

@@ -6,6 +6,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { styleOf } from './visuals.js';
 import { esc } from '../core/esc.js';
+import { wrapChunk } from './wrap.js';
 
 
 // shared with the VR panel, which draws the same buffer into a canvas
@@ -35,8 +36,9 @@ export class TerminalView {
           <div class="tmeta"></div>
           <div class="tbody"></div>
           <div class="tchoices hidden"></div>
+          <div class="tsay"><span class="pr">❯</span><input class="say" type="text" maxlength="2000" autocomplete="off" spellcheck="false" placeholder="TYPE TO THE AGENT · ENTER SENDS · ESC LEAVES"></div>
           <div class="ttalk idle"><button class="btn mic" data-ag="talk">HOLD TO TALK</button><span class="tt"></span><i class="lvl"><b></b></i></div>
-          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
+          <div class="tfoot"><span class="live">● LIVE</span><span class="hint">ENTER TO TYPE · ↑ ↓ PGUP PGDN TO READ BACK · SELECT TO COPY</span></div>
         </div>
       </div>`);
     this.el = root.querySelector('#agterm');
@@ -54,6 +56,26 @@ export class TerminalView {
     const mic = this.q('.mic');
     mic.addEventListener('pointerdown', (e) => { e.preventDefault(); mic.setPointerCapture?.(e.pointerId); this.onTalk?.(true); });
     for (const ev of ['pointerup', 'pointercancel']) mic.addEventListener(ev, () => this.onTalk?.(false));
+    // typing to the agent: Enter sends what is in the box (as if said: "select 2" and "yes" work too); ↑ ↓ bring
+    // back what was sent before
+    this.onType = null; // (text) => void
+    this.sent = [];
+    this.recall = -1;
+    const say = this.q('.say');
+    say.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        const text = say.value.trim();
+        if (text) { this.onType?.(text); this.sent = [text, ...this.sent.filter((x) => x !== text)].slice(0, 20); }
+        say.value = '';
+        this.recall = -1;
+        e.preventDefault();
+      } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.sent.length) {
+        this.recall = Math.max(-1, Math.min(this.sent.length - 1, this.recall + (e.key === 'ArrowUp' ? 1 : -1)));
+        say.value = this.recall < 0 ? '' : this.sent[this.recall];
+        e.preventDefault();
+      }
+    });
+
     // the agent's options while it waits at a choice: click one, press its number, say it, or the d-pad and A
     this.onPick = null; // (1…9 | 'yes' | 'no') => void
     this.opts = [];
@@ -82,6 +104,11 @@ export class TerminalView {
   }
 
   hasChoices() { return this.opts.length > 0; }
+
+  // the typing box: whether a key belongs to it, and moving into it or out
+  typing(e) { return e.target === this.q('.say'); }
+  focusSay() { this.q('.say').focus(); }
+  blurSay() { this.q('.say').blur(); }
 
   // the d-pad's highlight in the options, and A on it
   moveChoice(d) {
@@ -122,8 +149,19 @@ export class TerminalView {
 
   fit() {
     if (!this.term || !this.id) return;
-    if (this.fixed) { this.term.resize(...this.fixed); return; }
-    try { this.fitter.fit(); } catch {}
+    if (this.fixed) this.term.resize(...this.fixed);
+    else try { this.fitter.fit(); } catch {}
+    // the lines were broken for another width: write them again (a moment later, as a resize comes in bursts)
+    if (this.wrapCols && this.term.cols !== this.wrapCols && !this.pending) {
+      clearTimeout(this.rewrap);
+      this.rewrap = setTimeout(() => { if (this.id && this.term.cols !== this.wrapCols) this.load(); }, 150);
+    }
+  }
+
+  // output as it goes into xterm: long lines broken at spaces for the terminal's width (wrap.js)
+  write(text) {
+    this.wrapCols = this.term.cols;
+    this.term.write(wrapChunk(text, this.term.cols, this.wrapState));
   }
 
   async open(agent) {
@@ -145,7 +183,8 @@ export class TerminalView {
     const out = await this.feed.output(id);
     if (id !== this.id) return;
     this.term.reset();
-    this.term.write(out.text || '\x1b[90m(no output yet)\x1b[0m\r\n');
+    this.wrapState = { open: false };
+    this.write(out.text || '\x1b[90m(no output yet)\x1b[0m\r\n');
     this.have = out.seq;
     const queued = this.pending;
     this.pending = null;
@@ -158,7 +197,7 @@ export class TerminalView {
     if (seq <= this.have) return; // already in the buffer we fetched
     if (seq - text.length > this.have) { this.load(); return; } // missed some: start over from the server's copy
     this.have = seq;
-    this.term.write(text);
+    this.write(text);
     this.q('.live').classList.remove('blink');
     void this.q('.live').offsetWidth;
     this.q('.live').classList.add('blink');
@@ -202,6 +241,7 @@ export class TerminalView {
     this.pending = null;
     this.opts = [];
     this.optKey = '';
+    this.blurSay();
     this.el.classList.add('hidden');
     if (!quiet) this.term?.blur();
   }

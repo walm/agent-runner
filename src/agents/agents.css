@@ -84,7 +84,10 @@
 #agterm .tmeta { display: flex; flex-wrap: wrap; gap: 6px 22px; padding: 9px 16px; border-bottom: 1px solid rgba(150, 225, 255, 0.08); font-family: var(--mono); font-size: 11px; color: var(--ink); }
 #agterm .tmeta span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #agterm .tmeta i { font-style: normal; font-family: var(--display); font-size: 9px; letter-spacing: 0.3em; color: var(--ink-faint); margin-right: 8px; }
-#agterm .tbody { flex: 1; min-height: 0; padding: 8px 4px 4px 12px; position: relative; }
+/* the padding sits on xterm's own element, which the fit addon takes off (it measures this box with its padding
+   in): the text then stops short of the scrollbar, which macOS draws over the text */
+#agterm .tbody { flex: 1; min-height: 0; padding: 0; position: relative; }
+#agterm .tbody .xterm { padding: 8px 18px 4px 12px; }
 #agterm .tbody::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px); }
 #agterm .xterm { height: 100%; }
 #agterm .xterm-viewport { scrollbar-width: thin; scrollbar-color: rgba(150, 225, 255, 0.25) transparent; }
@@ -96,6 +99,12 @@
 #agterm .tchoices .opt { font: inherit; font-size: 12px; letter-spacing: 0.06em; color: var(--ink); background: rgba(150, 225, 255, 0.06); border: 1px solid rgba(150, 225, 255, 0.25); padding: 7px 12px 6px; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #agterm .tchoices .opt b { font-family: var(--mono); font-weight: 600; color: var(--c); margin-right: 8px; }
 #agterm .tchoices .opt:hover, #agterm .tchoices .opt.pad-sel { border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); color: #fff; }
+/* typing to the agent: a prompt line under its output */
+#agterm .tsay { display: flex; align-items: center; gap: 10px; padding: 6px 16px; border-top: 1px solid rgba(150, 225, 255, 0.08); }
+#agterm .tsay .pr { color: var(--c); font-family: var(--mono); font-weight: 600; }
+#agterm .tsay .say { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; color: var(--ink); font-family: var(--mono); font-size: 13px; padding: 4px 0; caret-color: var(--c); }
+#agterm .tsay .say::placeholder { color: var(--ink-faint); font-family: var(--display); font-size: 10px; letter-spacing: 0.2em; }
+#agterm .tsay:focus-within { background: color-mix(in srgb, var(--c) 7%, transparent); }
 /* talking to the agent (talk.js): the button, what to say or what is happening, the microphone's level */
 #agterm .ttalk { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-top: 1px solid rgba(150, 225, 255, 0.08); font-size: 10px; letter-spacing: 0.2em; color: var(--ink-faint); --t: var(--ink-faint); }
 #agterm .ttalk .mic { padding: 7px 12px 6px; font-size: 10px; flex: none; touch-action: none; user-select: none; -webkit-user-select: none; }

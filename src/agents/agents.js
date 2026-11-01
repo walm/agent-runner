@@ -68,6 +68,7 @@ export class AgentLayer {
     this.talk.language = () => this.game?.settings?.talkLang || 'en';
     this.term.onTalk = (down) => (down ? this.talkDown() : this.talk.release());
     this.term.onChoices = () => this.talk.show(); // the hint names how to pick
+    this.term.onType = (text) => { const e = this.entries.get(this.term.id); if (e) this.talk.send(e.agent, text); };
     this.term.onPick = (p) => { const e = this.entries.get(this.term.id); if (e) this.talk.pick(e.agent, p); };
 
     // keys for our overlays are taken in the capture phase, before the game's own listener sees them
@@ -186,6 +187,11 @@ export class AgentLayer {
   key(e) {
     const o = this.open;
     if (!o) return;
+    // the typing box keeps its keys (the game ignores keys in a field); Escape leaves it, not the terminal
+    if (o === 'terminal' && this.term.typing(e)) {
+      if (e.code === 'Escape') { this.term.blurSay(); e.preventDefault(); e.stopImmediatePropagation(); }
+      return;
+    }
     // reading back in the terminal: held keys repeat
     const scroll = o === 'terminal' && { ArrowUp: -1, ArrowDown: 1, PageUp: -1, PageDown: 1, Home: -Infinity, End: Infinity }[e.code];
     if (scroll) {
@@ -211,7 +217,8 @@ export class AgentLayer {
     }
     if (e.repeat) return;
     let used = true;
-    if (e.code === 'Escape' || (e.code === 'KeyG' && o === 'agents') || (e.code === 'Enter' && o === 'terminal')) this.close();
+    if (e.code === 'Enter' && o === 'terminal') this.term.focusSay();
+    else if (e.code === 'Escape' || (e.code === 'KeyG' && o === 'agents')) this.close();
     else if (o === 'agents' && e.code === 'ArrowDown') this.panel.move(1);
     else if (o === 'agents' && e.code === 'ArrowUp') this.panel.move(-1);
     else if (o === 'agents' && e.code === 'Enter') { const id = this.panel.selected(); if (id) this.drive(id); }
