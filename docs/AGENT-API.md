@@ -36,9 +36,13 @@ An agent not heard from for 15 minutes shows as `offline`. One that is silent fo
 | `DELETE /api/billboard?agent=…` | Take it down. |
 | `GET /api/billboards` | `[{ agent, title, caption, type, v, at }]` |
 | `GET /api/billboard/image?agent=…` | The poster's image, as it was posted. |
+| `POST /api/radio` | Run the radio: pick its music, skip, make an announcement (see [The radio](#the-radio)). |
+| `DELETE /api/radio` | The DJ steps off the air. |
+| `GET /api/radio` | `{ radio: { dj, category, track }, categories, recent }`: what is on, and the last announcements. |
+| `GET /api/music` | `{ categories, tracks: [{ id, title, artist, category, source, cached, url }] }` |
 | `GET /api/agents` | `[{ id, name, harness, status, last, meta, firstSeen, lastSeen, seq }]` |
 | `GET /api/agents/:id/output` | `{ id, text, seq }`: the buffered output. `seq` counts every character ever appended. |
-| `GET /api/stream` | Server-sent events: `snapshot` (the list) and `billboards` (the posters) on connect, then `agent` (`{ agent, prev, notable }`), `output` (`{ id, text, seq }`), `billboard` (one poster, or `{ agent, removed: true }`), `remove` (`{ id }`) and `ping` every 15 s. |
+| `GET /api/stream` | Server-sent events: `snapshot` (the list) and `billboards` (the posters) on connect, then `agent` (`{ agent, prev, notable }`), `output` (`{ id, text, seq }`), `billboard` (one poster, or `{ agent, removed: true }`), `remove` (`{ id }`), `radio` (the radio's state, on connect too), `radio-announce` (`{ id, text, from, dj, when }`), `radio-skip` and `ping` every 15 s. |
 | `GET /api/health` | `{ ok, agents, clients }` |
 
 ## Examples
@@ -123,6 +127,60 @@ curl -s -X DELETE 'localhost:5210/api/billboard?agent=my-bot:prod'
   image tool it has) and run `integrations/generic/billboard.sh <its agent id> <file> "<title>" "<caption>"`.
 - **No model at all**: post only a title and a caption from a script, a CI job or a hook, and the city draws
   the poster.
+
+## The radio
+
+The game has a radio (the RADIO menu): NEON FM, the city's own synthesised score, or the music library, which is
+a set of CC0 tracks plus your own files. One agent at a time can be its **DJ**: it picks the music by category and
+puts announcements on the air. With AGENT VOICE on, the game reads them out in the agent voice, with the music
+ducked under it (Settings > VOICE and RADIO VOICE), and otherwise they show as radio text. What the DJ says is up to you and your agent: a summary
+of a Slack channel, the pull requests waiting for review, a deploy that finished, the weather.
+
+`POST /api/radio`, as JSON:
+
+| field | |
+|---|---|
+| `announce` (or `say`) | What to read out, up to 1200 characters. Write it to be heard: short sentences, no links or markdown (links are dropped). |
+| `when` | `now` (default): read at once, over the music. `break`: read in the gap after the track that is playing, the way a radio DJ talks between records (at once on NEON FM, which never ends). |
+| `from` | The label on screen, such as `SLACK · #platform` or `GITHUB`. Defaults to `name`. |
+| `category` | Change the music: `synthwave`, `cyberpunk`, `ambient`, `neon fm`, or a category from your own folders. `any` gives the choice back to the listener. |
+| `track` | Play one track, by its id or part of its artist and title. |
+| `skip` | `true` for the next track. |
+| `name`, `agent` | The DJ's name on screen (default `radio`), and an id. |
+
+Or the shell-friendly form, like `/api/text`: the options as query parameters and the announcement as the raw
+body. `integrations/generic/radio.sh` wraps both:
+
+```sh
+radio.sh say "The deploy of api 2.4 finished. All checks green." DEPLOYS
+gh pr list | radio.sh break - GITHUB            # read the piped text between tracks
+radio.sh play ambient                           # or a track: radio.sh play "moonlight"
+radio.sh skip · radio.sh off · radio.sh status
+```
+
+It answers `{ ok, radio, categories, announcement?, warnings? }`. An unknown category or track is not an
+error, it leaves the music as it is and says so in `warnings`, with the categories there are.
+
+The listener stays in charge: AGENT DJ (in the RADIO menu) turns the DJ off altogether, and picking a source,
+category or track in the menu overrides the DJ's music until the DJ picks again.
+
+**Your own music**: put files (MP3, M4A, AAC, OGG, WAV, FLAC) in `~/Music/Agent Runner` (or set `AGENT_CITY_MUSIC`).
+A folder is a category: `~/Music/Agent Runner/focus/Artist - Title.mp3` is the track "Title" by "Artist" in
+`focus`; a file loose in the top folder is in `my music`. The library is read again on every request, so new files
+show up the next time the game asks.
+
+### Making a DJ
+
+- **A script on a timer**: [integrations/radio/github-prs.sh](../integrations/radio/github-prs.sh) reads out the
+  pull requests waiting for your review. Any script that can build a sentence can do the same: CI results,
+  calendar, on-call pages.
+- **An agent**: [integrations/radio/agent-dj.sh](../integrations/radio/agent-dj.sh) runs Claude Code headless on
+  a timer with a brief of yours ("summarise what changed in #platform since the last hour", with a Slack MCP
+  server); it writes the announcement and picks music to fit. Any agent that can run a command can be a DJ the
+  same way: give it `radio.sh` and say what to look at.
+- **The demo**: `npm run dev` runs a demo DJ with the mock agents, and `npm run radio:demo` (`-- --every 30`)
+  puts the same show on the air of any running server. [server/radio-demo.mjs](../server/radio-demo.mjs) is its
+  script: a list of the requests above, which is all a DJ is.
 
 ## Claude Code mapping
 

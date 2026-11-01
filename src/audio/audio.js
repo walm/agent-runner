@@ -1,5 +1,9 @@
 // Everything you hear is synthesised: rain and the city's hum, wind, the KITE's turbines, impacts, thunder,
-// chimes, and a score that thickens with speed and height. Nothing starts until the first user gesture.
+// chimes, and a score that thickens with speed and height (the radio's own station, NEON FM). Nothing starts until
+// the first user gesture.
+//
+// Three channels under the master volume, each with its own setting: the world (BACKGROUND: rain, city, the car,
+// effects), the radio (MUSIC: the score, or the music player's tracks, audio/music.js) and the agent voice (VOICE).
 const NOTE = (m) => 440 * Math.pow(2, (m - 69) / 12);
 // D minor: Dm  Bb  F  C, one bar each
 const CHORDS = [
@@ -46,7 +50,8 @@ export class Sound {
   constructor(settings) {
     this.settings = settings;
     this.ctx = null;
-    this.radio = true;
+    this.radio = true; // B turns the radio off and on
+    this.synthOn = true; // the score plays (the radio is on NEON FM)
     this.energy = 0;
     this.bright = 0;
     this.inRun = false;
@@ -65,10 +70,14 @@ export class Sound {
     // the world gets muffled inside the cloud deck and when paused
     this.muffle = ctx.createBiquadFilter();
     this.muffle.type = 'lowpass'; this.muffle.frequency.value = 20000; this.muffle.Q.value = 0.4;
-    this.muffle.connect(comp);
+    this.world = ctx.createGain(); this.world.connect(comp);
+    this.muffle.connect(this.world);
     this.sfx = ctx.createGain(); this.sfx.connect(this.muffle);
     this.amb = ctx.createGain(); this.amb.connect(this.muffle);
     this.musicBus = ctx.createGain(); this.musicBus.gain.value = 0; this.musicBus.connect(comp);
+    // the score: its dry voices, and its sends into the shared reverb and echo, which the chimes use too
+    this.synthBus = ctx.createGain(); this.synthBus.connect(this.musicBus);
+    this.voiceBus = ctx.createGain(); this.voiceBus.connect(comp);
     // shared reverb and a dotted-eighth echo for the score and the chimes
     this.verb = ctx.createConvolver(); this.verb.buffer = impulse(ctx, 3.2, 2.6);
     const verbOut = ctx.createGain(); verbOut.gain.value = 0.55;
@@ -80,6 +89,8 @@ export class Sound {
     const echoOut = ctx.createGain(); echoOut.gain.value = 0.4;
     echoTone.connect(echoOut).connect(comp);
     echoOut.connect(this.verb);
+    this.synthVerb = ctx.createGain(); this.synthVerb.gain.value = 0; this.synthVerb.connect(this.verb);
+    this.synthEcho = ctx.createGain(); this.synthEcho.gain.value = 0; this.synthEcho.connect(this.echo);
 
     this.white = noiseBuffer(ctx, 3, 'white');
     this.pink = noiseBuffer(ctx, 4, 'pink');
@@ -134,24 +145,54 @@ export class Sound {
     this.nextNote = ctx.currentTime + 0.2;
     this.step16 = 0;
     this.timer = setInterval(() => this.schedule(), 25);
+    this.onStart?.();
   }
 
   applySettings() {
     if (!this.ctx) return;
-    const t = this.ctx.currentTime;
-    this.master.gain.setTargetAtTime(this.settings.volume, t, 0.1);
-    this.musicBus.gain.setTargetAtTime(this.radio ? this.settings.music * 0.7 * (this.ducked ? 0.3 : 1) : 0, t, this.ducked ? 0.15 : 0.4);
+    const t = this.ctx.currentTime, s = this.settings;
+    this.master.gain.setTargetAtTime(s.volume, t, 0.1);
+    this.world.gain.setTargetAtTime(s.background ?? 1, t, 0.1);
+    this.voiceBus.gain.setTargetAtTime(s.voiceVolume ?? 1, t, 0.1);
+    const music = this.musicLevel();
+    this.musicBus.gain.setTargetAtTime(music, t, this.ducked ? 0.15 : 0.4);
+    // the score's reverb and echo sends bypass musicBus (the chimes share those), so they follow it here
+    const synth = this.synthOn ? 1 : 0;
+    this.synthBus.gain.setTargetAtTime(synth, t, 0.4);
+    this.synthVerb.gain.setTargetAtTime(synth * music, t, 0.4);
+    this.synthEcho.gain.setTargetAtTime(synth * music, t, 0.4);
+  }
+
+  // the radio's level now: its setting, off, or stepped back under a voice
+  musicLevel() {
+    return this.radio ? this.settings.music * 0.7 * (this.ducked ? 0.3 : 1) : 0;
+  }
+
+  // NEON FM, the score, on or off (off while the music player plays a track)
+  setSynth(on) {
+    this.synthOn = on;
+    this.applySettings();
+  }
+
+  // a media element (the music player's) into the radio's channel; once per element
+  connectMedia(el) {
+    if (!this.ctx) return null;
+    const src = this.ctx.createMediaElementSource(el);
+    src.connect(this.musicBus);
+    return src;
   }
 
   // the music steps back while an agent speaks (audio/voice.js)
   duck(on) {
     this.ducked = on;
     this.applySettings();
+    this.onDuck?.(on);
   }
 
   toggleRadio() {
     this.radio = !this.radio;
     this.applySettings();
+    this.onRadio?.(this.radio);
     return this.radio;
   }
 
@@ -193,7 +234,7 @@ export class Sound {
   // ---- score: a look-ahead sequencer on sixteenths ----
   schedule() {
     const ctx = this.ctx;
-    if (!this.radio || this.settings.music <= 0.001) { this.nextNote = ctx.currentTime + 0.1; return; }
+    if (!this.radio || !this.synthOn || this.settings.music <= 0.001) { this.nextNote = ctx.currentTime + 0.1; return; }
     const spb = 60 / BPM / 4;
     while (this.nextNote < ctx.currentTime + 0.12) {
       this.playStep(this.step16, this.nextNote);
@@ -218,7 +259,7 @@ export class Sound {
     if (this.inRun && s % 4 === 0) this.kick(t);
   }
 
-  voice(type, freq, t, dur, g, { attack = 0.01, cutoff = 4000, q = 0.7, dest = this.musicBus, detune = 0, send = 0 } = {}) {
+  voice(type, freq, t, dur, g, { attack = 0.01, cutoff = 4000, q = 0.7, dest = this.synthBus, detune = 0, send = 0, sendTo = this.echo } = {}) {
     const ctx = this.ctx;
     const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq; o.detune.value = detune;
     const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; f.Q.value = q;
@@ -227,7 +268,7 @@ export class Sound {
     a.gain.linearRampToValueAtTime(g, t + attack);
     a.gain.setTargetAtTime(0, t + Math.max(attack, dur * 0.6), dur * 0.3);
     o.connect(f).connect(a).connect(dest);
-    if (send) { const sg = ctx.createGain(); sg.gain.value = send; a.connect(sg).connect(this.echo); }
+    if (send) { const sg = ctx.createGain(); sg.gain.value = send; a.connect(sg).connect(sendTo); }
     o.start(t); o.stop(t + dur * 1.8 + 0.1);
     return f;
   }
@@ -236,7 +277,7 @@ export class Sound {
     const cut = 700 + this.bright * 1600 + this.energy * 500;
     for (const n of chord) {
       for (const d of [-9, 9]) {
-        const f = this.voice('sawtooth', NOTE(n), t, dur * 1.15, 0.022, { attack: 1.4, cutoff: cut, detune: d, dest: this.verb });
+        const f = this.voice('sawtooth', NOTE(n), t, dur * 1.15, 0.022, { attack: 1.4, cutoff: cut, detune: d, dest: this.synthVerb });
         f.frequency.setValueAtTime(cut * 0.6, t);
         f.frequency.linearRampToValueAtTime(cut, t + dur * 0.5);
         this.voice('sawtooth', NOTE(n), t, dur * 1.15, 0.016, { attack: 1.4, cutoff: cut, detune: d });
@@ -251,7 +292,7 @@ export class Sound {
   }
 
   arp(n, t, g) {
-    this.voice('square', NOTE(n), t, 0.14, 0.03 * g, { attack: 0.004, cutoff: 1800 + this.bright * 2400, send: 0.7 });
+    this.voice('square', NOTE(n), t, 0.14, 0.03 * g, { attack: 0.004, cutoff: 1800 + this.bright * 2400, send: 0.7, sendTo: this.synthEcho });
   }
 
   hat(t, accent, g) {
@@ -261,7 +302,7 @@ export class Sound {
     const a = ctx.createGain();
     a.gain.setValueAtTime(0.05 * accent * g, t);
     a.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-    s.connect(f).connect(a).connect(this.musicBus);
+    s.connect(f).connect(a).connect(this.synthBus);
     s.start(t, Math.random() * 2, 0.08);
   }
 
@@ -270,7 +311,7 @@ export class Sound {
     const o = ctx.createOscillator(); o.type = 'sine';
     o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
     const a = ctx.createGain(); a.gain.setValueAtTime(0.32, t); a.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
-    o.connect(a).connect(this.musicBus); o.start(t); o.stop(t + 0.32);
+    o.connect(a).connect(this.synthBus); o.start(t); o.stop(t + 0.32);
   }
 
   // ---- one-shots ----
@@ -342,6 +383,13 @@ export class Sound {
       const a = this.ctx.createGain(); a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(0.06, t + 0.02); a.gain.setValueAtTime(0.06, t + 0.38); a.gain.linearRampToValueAtTime(0, t + 0.45);
       o.connect(lp).connect(a).connect(this.sfx); o.start(t); o.stop(t + 0.5);
     }
+  }
+
+  // the station ident before a DJ speaks: two soft tones down a fifth, on the radio's channel
+  ident() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    [[81, 0], [74, 0.16]].forEach(([m, d]) => this.voice('sine', NOTE(m), t + d, 0.5, 0.06, { attack: 0.004, cutoff: 8000, dest: this.voiceBus, send: 0.4 }));
   }
 
   whoosh() {

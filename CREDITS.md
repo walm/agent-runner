@@ -38,6 +38,22 @@ Vehicle and brand names in model titles belong to their owners. The models are f
   [ONNX Runtime Web](https://github.com/microsoft/onnxruntime) (MIT). The pipeline follows Supertone's demo
   (MIT sample code).
 
+## Music: CC0
+
+The radio's music library, from [OpenGameArt](https://opengameart.org). The files are not in this repository: the
+agent server downloads each from OpenGameArt the first time it is played and keeps it on disk (server/music.mjs).
+CC0 asks for no credit; it is given here all the same.
+
+- *Synth Wave* and *Rocking the Synth Machine* by Pro Sensory (Alex McCulloch): [1](https://opengameart.org/content/synth-wave), [2](https://opengameart.org/content/rocking-the-synth-machine)
+- *Futility Belt* by iamoneabe: [link](https://opengameart.org/content/futility-belt)
+- *Approach* by Ruskerdax: [link](https://opengameart.org/content/approach)
+- *Pyro* by cinameng: [link](https://opengameart.org/content/pyro)
+- *Cyberpunk Moonlight Sonata* by Joth: [link](https://opengameart.org/content/cyberpunk-moonlight-sonata)
+- *Corrupt Data Stream* by Tsorthan Grove: [link](https://opengameart.org/content/corrupt-data-stream)
+- *Calm Ambient 1 (Synthwave 4k)* by cynicmusic: [link](https://opengameart.org/content/calm-ambient-1-synthwave-4k)
+
+NEON FM, the radio's own station, is the game's synthesised score.
+
 ## Fonts: SIL Open Font License 1.1
 
 - [Oxanium](https://github.com/sevmeyer/oxanium) and [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono): interface, adverts, signs.

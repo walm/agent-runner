@@ -42,6 +42,8 @@ export class Hud {
         <div class="h-toast"></div>
         <div class="h-count hidden"></div>
         <div class="h-radio"></div>
+        <div class="h-np hidden"><i class="eq"><b></b><b></b><b></b><b></b></i><div><small></small><span class="t"></span><span class="a"></span>
+          <span class="ctl"><button data-np="prev" title="Previous track">◀◀</button><button data-np="station" title="Next station">STATION ▸</button><button data-np="next" title="Next track · N">▶▶</button><button data-np="power" title="Radio on / off · B">❚❚</button></span></div></div>
         <div class="h-hints"></div>
         <div class="h-prompt hidden"></div>
       </div>`);
@@ -67,6 +69,14 @@ export class Hud {
     this.toasts = q('.h-toast');
     this.count = q('.h-count');
     this.radioEl = q('.h-radio');
+    this.np = q('.h-np');
+    // its buttons: prev, station, next, power (onRadioCmd); pointerdown, so the keys stay with the game
+    this.np.addEventListener('pointerdown', (e) => {
+      const b = e.target.closest('button[data-np]');
+      if (!b) return;
+      e.preventDefault();
+      this.onRadioCmd?.(b.dataset.np);
+    });
     this.hitEl = q('.h-hit');
     this.hints = q('.h-hints');
     this.promptEl = q('.h-prompt');
@@ -102,6 +112,21 @@ export class Hud {
     while (this.toasts.children.length > 3) this.toasts.firstChild.remove();
     setTimeout(() => d.remove(), 2900);
   }
+
+  // the radio, lower right: what plays, and ON AIR while its voice speaks; its buttons change it.
+  // np: { show, on (the radio is on), live (no tracks to skip), label, title, artist } (text)
+  nowPlaying(np) {
+    this.np.classList.toggle('hidden', !np.show);
+    if (!np.show) return;
+    this.np.classList.toggle('off', !np.on);
+    this.np.classList.toggle('live', !!np.live);
+    this.np.querySelector('small').textContent = np.on ? np.label : 'RADIO OFF';
+    this.np.querySelector('.t').textContent = np.title;
+    this.np.querySelector('.a').textContent = np.artist;
+    this.np.querySelector('[data-np=power]').textContent = np.on ? '❚❚' : '▶';
+  }
+
+  onAir(on) { this.np.classList.toggle('air', on); }
 
   radio(who, en) {
     this.onToast?.(`${who} · ${en}`, 'radio');

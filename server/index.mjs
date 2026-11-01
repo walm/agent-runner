@@ -9,8 +9,10 @@ import { join, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Store, validate, validateBillboard, LIMITS } from './store.mjs';
 import { runMock, BILLBOARDS } from './mock.mjs';
+import { runRadioDemo } from './radio-demo.mjs';
 import { ADAPTERS } from './adapters.mjs';
 import { serveVoiceFile } from './models.mjs';
+import { Radio, library, categoriesOf, serveTrack } from './music.mjs';
 
 const PORT = +(process.env.PORT || 5210);
 const HOST = process.env.HOST || '127.0.0.1';
@@ -43,6 +45,7 @@ function sse(res, event, data) {
 store.on((kind, data) => {
   for (const res of clients) sse(res, kind, data);
 });
+const radio = new Radio((kind, data) => { for (const res of clients) sse(res, kind, data); });
 
 // agents fall silent without telling anyone: re-announce them when they cross into offline, and prune
 const wasOffline = new Set();
@@ -214,12 +217,40 @@ const server = http.createServer(async (req, res) => {
       res.write('retry: 2000\n\n');
       sse(res, 'snapshot', store.list());
       sse(res, 'billboards', store.boardList());
+      sse(res, 'radio', radio.view());
       clients.add(res);
       req.on('close', () => clients.delete(res));
       return;
     }
     // the agent voice's model, downloaded once and kept on disk (models.mjs)
-    if (path.startsWith('/api/voice/') && req.method === 'GET') return serveVoiceFile(res, path.slice('/api/voice/'.length));
+    if (path.startsWith('/api/voice/') && req.method === 'GET') return serveVoiceFile(req, res, path.slice('/api/voice/'.length));
+    // the radio: its music (music.mjs) and the agent that DJs it
+    if (path === '/api/music' && req.method === 'GET') {
+      const tracks = await library();
+      return send(res, 200, { categories: categoriesOf(tracks), tracks });
+    }
+    if (path === '/api/music/file' && (req.method === 'GET' || req.method === 'HEAD')) return serveTrack(req, res, url.searchParams.get('id'));
+    if (path === '/api/radio' && req.method === 'GET') {
+      return send(res, 200, { radio: radio.view(), categories: categoriesOf(await library()), recent: radio.recent });
+    }
+    if (path === '/api/radio' && req.method === 'POST') {
+      if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
+      // JSON, or the shell-friendly form: options as query params and the announcement as the raw body
+      let body;
+      const q = Object.fromEntries([...url.searchParams].filter(([k]) => k !== 'token'));
+      if (Object.keys(q).length) {
+        let text;
+        try { text = await readBody(req); } catch (e) { return send(res, 413, { ok: false, error: e.message }); }
+        body = { ...q, skip: q.skip === 'true' || q.skip === '1', ...(text.trim() && { announce: text }) };
+      } else if ((body = await readJson(req, res)) === undefined) return;
+      const r = await radio.post(body);
+      return send(res, r.ok ? 200 : 400, r);
+    }
+    if (path === '/api/radio' && req.method === 'DELETE') {
+      if (!authorised(req)) return send(res, 401, { ok: false, error: 'bad or missing bearer token' });
+      radio.clear();
+      return send(res, 200, { ok: true });
+    }
     if (path.startsWith('/api/')) return send(res, 404, { ok: false, error: 'unknown endpoint' });
     if (req.method === 'GET') return serveStatic(req, res, path);
     send(res, 405, 'method not allowed');
@@ -241,5 +272,8 @@ server.listen(PORT, HOST, () => {
         if (v.ok) store.setBillboard(v.board);
       }
     }, 3000).unref();
+    // and a DJ takes the radio (server/radio-demo.mjs): a show of made-up news, and the music to go with it
+    // (only to a game that listens: the show starts from the top when one connects)
+    runRadioDemo((b) => (clients.size ? radio.post(b) : null), { every: args.has('--fast') ? 25 : 45, first: 8 });
   }
 });
