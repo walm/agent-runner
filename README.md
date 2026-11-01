@@ -1,7 +1,5 @@
 # Agent Runner
 
-*Formerly Neon City Agents.*
-
 **Your AI agents live in a rain-soaked neon city.** Each agent you run (Claude Code, Codex, Pi, a deploy bot, any
 agent-driven app) gets its own building, with its name in neon on the roof. Light pillars on the roofs show what
 every agent is doing. Drive or fly to whoever needs you, pull up at the kerb, and open a terminal that streams the
@@ -23,16 +21,16 @@ npm run dev          # agent server on :5210 with 8 mock agents, game on http://
 
 Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts without the mock agents.
 
-| | |
-|---|---|
-| `G` or click the **AGENTS** counter (X on a gamepad) | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. On a gamepad: the stick or d-pad chooses, A drives, Y warps, B closes. |
-| Pull up in the ring at the kerb, or fly into the agent's beam | A card shows who the agent is and what it last said; `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `↑ ↓` `PgUp PgDn` `Home End` (or a gamepad's sticks, d-pad, LB / RB) read back; `Esc` (or B) to leave. |
-| `M` (Back on a gamepad) | City map with every agent marked by status. Click to set a waypoint; on a gamepad the left stick pans, the triggers zoom and A sets the waypoint at the crosshair. |
-| A waypoint | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are. |
-| WASD / Space / C / Shift | Drive, lift off and climb, descend, boost (as in Neon Zenith). |
-| `Esc` | The menu: resume, back to the street, end a run, or **quit to the main menu** (`Q`), where the car parks and the title film plays again. |
-| `P`, the AUTOPILOT chip (top right) or the menu | **Autopilot**: OFF, AGENT, CRUISE, TURBO, TOUR (below). Touch the controls and you have the car back. |
-| Gamepad | Everything works from the pad. Driving: triggers thrust and brake, left stick steers, right stick climbs and descends, RB boosts. Buttons: **A** does what `Enter` does (the terminal at an agent's door, a run at its beacon), **B** horn, **X** the agents list, **Y** camera, **Start** the menu (and the game from the title), **Back** the map, right stick press the autopilot. The d-pad is the radio: up on and off, left and right the previous and next track, down the next station. In the title, the menu and the results, the d-pad or the left stick moves a highlight, A picks, B goes back, LB and RB step the tabs, and left and right move a slider. The HUD's hints switch to the pad's buttons when it was touched last. |
+|                                                               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `G` or click the **AGENTS** counter (X on a gamepad)          | List every agent, sorted by who needs you. `↑ ↓` to choose, `Enter` to **drive** there (sets a waypoint), `W` to **warp** to the kerb outside. On a gamepad: the stick or d-pad chooses, A drives, Y warps, B closes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Pull up in the ring at the kerb, or fly into the agent's beam | A card shows who the agent is and what it last said; `Enter` opens the **terminal**: the agent's output with colours, plus task, cwd, model and uptime. `↑ ↓` `PgUp PgDn` `Home End` (or a gamepad's sticks, d-pad, LB / RB) read back; `Esc` (or B) to leave.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `M` (Back on a gamepad)                                       | City map with every agent marked by status. Click to set a waypoint; on a gamepad the left stick pans, the triggers zoom and A sets the waypoint at the crosshair.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| A waypoint                                                    | Satnav: a display floating ahead of the car shows the next turn and how far it is, chevrons on the road mark the way in your lane, and both maps draw the route. Leave it and it plans again from where you are.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| WASD / Space / C / Shift                                      | Drive, lift off and climb, descend, boost (as in Neon Zenith).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `Esc`                                                         | The menu: resume, back to the street, end a run, or **quit to the main menu** (`Q`), where the car parks and the title film plays again.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `P`, the AUTOPILOT chip (top right) or the menu               | **Autopilot**: OFF, AGENT, CRUISE, TURBO, TOUR (below). Touch the controls and you have the car back.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Gamepad                                                       | Everything works from the pad. Driving: triggers thrust and brake, left stick steers, right stick climbs and descends, RB boosts. Buttons: **A** does what `Enter` does (the terminal at an agent's door, a run at its beacon), **B** horn, **X** the agents list, **Y** camera, **Start** the menu (and the game from the title), **Back** the map, right stick press the autopilot. The d-pad is the radio: up on and off, left and right the previous and next track, down the next station. In the title, the menu and the results, the d-pad or the left stick moves a highlight, A picks, B goes back, LB and RB step the tabs, and left and right move a slider. The HUD's hints switch to the pad's buttons when it was touched last. |
 
 Keys with a modifier held (`Cmd`/`Ctrl`/`Alt`) are left to the browser and the system: reloading with `Cmd R` does not reset the
 car, and `Cmd M` minimises instead of opening the map.
@@ -103,6 +101,7 @@ Status colours: **cyan** working · **magenta** pulsing, needs you · **red** er
 You are notified when an agent starts waiting for you, fails or finishes. "Needs you" also comes over the radio.
 
 Each harness has its own neighbourhood:
+
 - `claude-code`: Temple Night Market, around the spawn point
 - `codex`: Yau Ma Tei
 - `pi`: Sham Shui Po
@@ -147,16 +146,16 @@ Open the game in the Quest browser and press **ENTER VR** (top left; it only sho
 You sit in the car's seat, with a dash under your view; the agents list and the terminal open as panels in front of
 you, and name tags float over the agents' roofs.
 
-| Touch controller | |
-|---|---|
-| Right trigger / left trigger | Throttle / brake and reverse (the left stick's Y works too) |
-| Left stick X | Steer |
-| Right stick Y | Climb and descend |
-| Grip (either) | Boost |
-| **A** | Open the terminal at an agent's kerb or in its beam (or start a run at its beacon) |
-| **X** | Agents list: stick to choose, **A** drive, **trigger** warp, **B** close |
-| **Y** | Seat view or chase view |
-| Right stick (terminal) | Scroll back; **A** or **B** closes |
+| Touch controller             |                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| Right trigger / left trigger | Throttle / brake and reverse (the left stick's Y works too)                        |
+| Left stick X                 | Steer                                                                              |
+| Right stick Y                | Climb and descend                                                                  |
+| Grip (either)                | Boost                                                                              |
+| **A**                        | Open the terminal at an agent's kerb or in its beam (or start a run at its beacon) |
+| **X**                        | Agents list: stick to choose, **A** drive, **trigger** warp, **B** close           |
+| **Y**                        | Seat view or chase view                                                            |
+| Right stick (terminal)       | Scroll back; **A** or **B** closes                                                 |
 
 Hold the Meta button to recenter.
 
@@ -175,6 +174,7 @@ proxy. That proxy also carries your agents' terminal output and accepts events, 
 network and ngrok to anyone holding the URL. Keep the basic auth on ngrok when real agents report in.
 
 What differs from the screen:
+
 - **No post chain in a headset** (no bloom, grade or wet-street mirror; three.js turns screen-space passes off in
   XR). The scene is tone-mapped by the renderer, a little brighter to make up for the missing bloom.
 - **WebGL**: WebXR over WebGPU is not in any headset browser yet, so with a headset present the game starts on WebGL.
@@ -189,6 +189,7 @@ What differs from the screen:
   - HIGH: the whole city.
 
   The dash shows the frame rate. TRAFFIC (Settings) thins out the other cars, on the screen too.
+
 - **A wait on entering**: every shader is built again for the headset in the background, about 25–35 s on a Mac.
   It shows a notice in the meantime.
 
@@ -221,6 +222,7 @@ integrations/generic/post-event.sh my-bot:prod waiting "Approve the deploy?"
   - stop → done
 
   There is one building per host and working directory.
+
 - **Codex**: point `notify` in `~/.codex/config.toml` at
   [integrations/codex/notify.sh](integrations/codex/notify.sh). Codex only reports at the end of each turn.
 - **Billboards**: copy [integrations/claude-code/skills/city-billboard](integrations/claude-code/skills/city-billboard)
@@ -235,16 +237,16 @@ for the scripts when the server runs somewhere else. The server listens on 127.0
 
 ## Scripts
 
-| | |
-|---|---|
-| `npm run dev` | Server with mock agents, plus Vite (proxies `/api` to the server) |
-| `npm run dev:lan` | The same, with Vite over https on every interface (for a headset on the LAN) |
-| `npm run server` / `server:mock` | The agent server alone (port `PORT`, default 5210) |
-| `npm run mock` | Mock agents posting over HTTP to a running server (`--url`, `--fast`, `--token`) |
-| `npm run radio:demo` | A demo DJ on a running server's radio (`AGENT_CITY_URL`; `-- --every 30`) |
-| `npm test` | Server unit tests (`node --test`) |
-| `npm run build` then `npm run server` | Production: the server also serves `dist/` on :5210 |
-| `npm run app:build` / `app:dev` | The macOS app (see [Desktop app](#desktop-app-macos)) |
+|                                       |                                                                                  |
+| ------------------------------------- | -------------------------------------------------------------------------------- |
+| `npm run dev`                         | Server with mock agents, plus Vite (proxies `/api` to the server)                |
+| `npm run dev:lan`                     | The same, with Vite over https on every interface (for a headset on the LAN)     |
+| `npm run server` / `server:mock`      | The agent server alone (port `PORT`, default 5210)                               |
+| `npm run mock`                        | Mock agents posting over HTTP to a running server (`--url`, `--fast`, `--token`) |
+| `npm run radio:demo`                  | A demo DJ on a running server's radio (`AGENT_CITY_URL`; `-- --every 30`)        |
+| `npm test`                            | Server unit tests (`node --test`)                                                |
+| `npm run build` then `npm run server` | Production: the server also serves `dist/` on :5210                              |
+| `npm run app:build` / `app:dev`       | The macOS app (see [Desktop app](#desktop-app-macos))                            |
 
 ## Layout
 
