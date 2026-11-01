@@ -1,20 +1,18 @@
 // Harness adapters: turn a harness's own hook payload into a city event, so the hook on the harness side is a
 // bare `curl --data-binary @-` with no jq or script. POST /api/hooks/<name>.
 import { basename } from 'node:path';
+import { markdown } from './markdown.mjs';
 
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', mag: '\x1b[35m', cyan: '\x1b[36m', grey: '\x1b[90m' };
 const REPLY_MAX = 16 * 1024;
 
-// what the agent wrote back, for the terminal: its Markdown read the way a terminal shows it (headings and **bold**
-// in bold, `code` in cyan), after a ⏺ as Claude Code draws a reply
+// what the agent wrote back, for the terminal: its Markdown drawn the way a terminal shows it (markdown.mjs), after
+// a ⏺ as Claude Code draws a reply
 function reply(md) {
   let s = String(md ?? '').replace(/\r/g, '').trim();
   if (!s) return '';
   if (s.length > REPLY_MAX) s = `${s.slice(0, REPLY_MAX)}\n…`;
-  const lines = s.split('\n').map((l) => (/^#{1,6}\s/.test(l)
-    ? `${C.bold}${l.replace(/^#{1,6}\s+/, '')}${C.reset}`
-    : l.replace(/\*\*([^*]+)\*\*/g, `${C.bold}$1${C.reset}`).replace(/`([^`\n]+)`/g, `${C.cyan}$1${C.reset}`)));
-  return `\n${C.bold}⏺${C.reset} ${lines.join('\n  ')}\n`;
+  return `\n${C.bold}⏺${C.reset} ${markdown(s).join('\n  ')}\n`;
 }
 // its first line of words, for the agent's last line
 const firstLine = (md) => clip(String(md ?? '').replace(/[#*`>_]/g, '').split('\n').find((l) => l.trim()) || '', 200);

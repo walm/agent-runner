@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { intent, choiceOf, clean } from '../src/agents/intent.js';
 import { claudeCode, codex } from './adapters.mjs';
+import { markdown, visible } from './markdown.mjs';
 
 const MENU = { status: 'waiting', prompt: 'menu' };
 const keys = (said, at) => intent(said, at).keys;
@@ -105,4 +106,17 @@ test('the hooks say what the agent shows, and where it runs', () => {
   // a subagent's end is no last word
   assert.equal(claudeCode(hook({ hook_event_name: 'SubagentStop' })).last, undefined);
   assert.equal(codex({ type: 'agent-turn-complete', cwd: '/w' }, { pid: 77 }).meta.pid, 77);
+});
+
+test('markdown for the terminal', () => {
+  const plain = (lines) => lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+  const t = plain(markdown('| A | B |\n|---|--:|\n| one | 2 |\n| a much longer cell than the rest | 30 |', { width: 30 }));
+  assert.equal(t[0][0], '┌');
+  assert.ok(t.every((l) => l.length === t[0].length), 'every row as wide as the frame');
+  assert.ok(t[0].length <= 30, 'the table fits its width');
+  assert.ok(t.some((l) => /│\s+30 │$/.test(l)), 'a right-aligned column');
+  const m = plain(markdown('# Title\n- [x] done\n- item\n1. first\n> quoted\n---\n```js\nconst a = **b**;\n```\nsee [docs](http://x)'));
+  assert.deepEqual(m, ['Title', '☑ done', '• item', '1. first', '▌ quoted', '─'.repeat(40), '┌ js', '│ const a = **b**;', 'see docs (http://x)']);
+  assert.equal(visible(markdown('**bold** and `code` and *it* and ~~no~~')[0]), 'bold and code and it and no'.length);
+  assert.equal(plain(markdown('snake_case_name stays and 2*3*4 too'))[0], 'snake_case_name stays and 2*3*4 too');
 });
