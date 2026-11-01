@@ -3,10 +3,12 @@
 // Off until the VOICE setting turns it on, which downloads the model once (~400 MB).
 //
 // A city of busy agents says more than anyone can listen to, so: one line waits per agent (a newer one replaces
-// it), what needs you goes first, and a line that has waited too long is dropped. The radio DJ's announcements
-// (audio/music.js) are longer, read sentence by sentence, and go before everything else.
+// it), what needs you goes first, then an agent that finished, then the radio DJ's announcements (audio/music.js,
+// longer, read sentence by sentence; an agent's news may come in between two), then the rest; a line that has
+// waited too long is dropped.
 const VOICE = 'F1', LANG = 'en', SPEED = 1.25;
 const MAX_WAIT = 20000; // ms a line may wait before it is stale
+const END_WAIT = 90000; // ms a line that ends a task or needs you may wait: the radio can talk for longer than MAX_WAIT
 const MAX_LEN = 180; // characters of a line that are read
 const RADIO_WAIT = 180000; // ms an announcement may wait
 const RADIO_CHUNK = 220; // characters per piece an announcement is read in
@@ -20,7 +22,7 @@ export class Voice {
     this.enabled = false;
     this.worker = null;
     this.ready = false;
-    this.queue = []; // { agent, text, urgent, radio, at }
+    this.queue = []; // { agent, text, urgent, end, radio, at }
     this.onIdle = null; // () => void, when the last queued line has been spoken
     this.onSpeak = null; // (radio, on) => void: a line starts or stops being spoken (radio: it is the radio's)
     this.busy = false; // a line is being made or spoken
@@ -72,14 +74,14 @@ export class Voice {
     const i = this.queue.findIndex((q) => q.agent === agent);
     if (i >= 0) this.queue.splice(i, 1);
     const said = verb ? (line ? `${who} ${verb}: ${line}` : `${who} ${verb}.`) : `${who}: ${line}`;
-    this.queue.push({ agent, text: said, urgent, at: performance.now() });
+    this.queue.push({ agent, text: said, urgent, end: !!verb, at: performance.now() });
     this.next();
   }
 
   next() {
     if (!this.ready || this.busy || !this.enabled) return;
     const now = performance.now();
-    this.queue = this.queue.filter((q) => now - q.at < (q.radio ? RADIO_WAIT : MAX_WAIT));
+    this.queue = this.queue.filter((q) => now - q.at < (q.radio ? RADIO_WAIT : q.urgent || q.end ? END_WAIT : MAX_WAIT));
     if (!this.queue.length) { this.onIdle?.(); return; }
     // no sound until the first key or click has started the game's audio: the lines wait (and age out) rather
     // than being synthesised one after another for a context that cannot play them
@@ -89,8 +91,10 @@ export class Voice {
       this.retry = setTimeout(() => this.next(), 500);
       return;
     }
-    let i = this.queue.findIndex((q) => q.radio);
-    if (i < 0) i = Math.max(0, this.queue.findIndex((q) => q.urgent));
+    // what needs you (or failed), then a task that ended, then the radio, then the rest; first come within each
+    const rank = (q) => (q.urgent && !q.radio ? 0 : q.end ? 1 : q.radio ? 2 : 3);
+    let i = 0;
+    for (let k = 1; k < this.queue.length; k++) if (rank(this.queue[k]) < rank(this.queue[i])) i = k;
     const [q] = this.queue.splice(i, 1);
     this.busy = true;
     this.line = q;
