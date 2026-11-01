@@ -16,6 +16,7 @@ function canvas(el, w, h) {
 }
 
 const MAP_W = 280; // the minimap's size in css px (ui.css shrinks it on small screens)
+const POINTS = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
 
 export class Hud {
   constructor(root, mapImage) {
@@ -87,9 +88,20 @@ export class Hud {
     this.promptEl.addEventListener('pointerdown', (e) => { e.preventDefault(); this.onPrompt?.(); });
     this.last = {};
     this.hitT = 0;
+    this.visible = false;
+    // the gradients that never change: made once, not three times a frame
+    this.altBg = this.gAlt.createLinearGradient(0, 0, 90, 0);
+    this.altBg.addColorStop(0, 'rgba(3,4,10,0.5)'); this.altBg.addColorStop(1, 'rgba(3,4,10,0)');
+    this.altMask = this.gAlt.createLinearGradient(0, 0, 0, 400);
+    this.altMask.addColorStop(0, 'rgba(0,0,0,0)'); this.altMask.addColorStop(0.16, '#000'); this.altMask.addColorStop(0.84, '#000'); this.altMask.addColorStop(1, 'rgba(0,0,0,0)');
+    const R = MAP_W / 2;
+    this.mapTint = this.gMap.createRadialGradient(R, R, 0, R, R, R);
+    this.mapTint.addColorStop(0, 'rgba(4, 10, 20, 0.5)'); this.mapTint.addColorStop(1, 'rgba(4, 14, 26, 0.25)');
+    this.mapGlow = this.gMap.createRadialGradient(R, R, R * 0.55, R, R, R * 0.9);
+    this.mapGlow.addColorStop(0, 'rgba(59, 232, 255, 0)'); this.mapGlow.addColorStop(1, 'rgba(59, 232, 255, 0.16)');
   }
 
-  show(on) { this.el.classList.toggle('off', !on); }
+  show(on) { this.visible = !!on; this.el.classList.toggle('off', !on); }
 
   setHints(touch) {
     const items = touch ? [] : [['W S', 'THRUST'], ['A D', 'STEER'], ['SPACE', 'LIFT OFF / CLIMB'], ['C', 'DESCEND'], ['SHIFT', 'BOOST'], ['V', 'CAMERA'], ['M', 'MAP'], ['G', 'AGENTS'], ['ESC', 'MENU']];
@@ -182,7 +194,9 @@ export class Hud {
     this.shards.textContent = `${n}/${total}`;
   }
 
+  // s.paused: a menu is over it and nothing moves, so nothing is redrawn; hidden (the HUD setting, a headset), the same
   update(s, dt) {
+    if (!this.visible || s.paused) return;
     // speed cluster
     const kmh = Math.round(s.speed * 3.6);
     if (kmh !== this.last.kmh) { this.spd.textContent = kmh; this.last.kmh = kmh; }
@@ -211,7 +225,6 @@ export class Hud {
     const b = s.bearing;
     g.font = '500 10px "Oxanium Variable", sans-serif';
     g.textAlign = 'center';
-    const names = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
     for (let d = Math.ceil((b - 62) / 5) * 5; d <= b + 62; d += 5) {
       const x = W / 2 + (d - b) * pxPerDeg;
       const n = ((d % 360) + 360) % 360;
@@ -219,7 +232,7 @@ export class Hud {
       g.globalAlpha = Math.max(0, fade);
       g.fillStyle = n % 45 === 0 ? INK : FAINT;
       g.fillRect(x - 0.5, n % 45 === 0 ? 4 : 8, 1, n % 45 === 0 ? 10 : 5);
-      if (n % 45 === 0) { g.fillStyle = n % 90 === 0 ? INK : DIM; g.fillText(names[n], x, 28); }
+      if (n % 45 === 0) { g.fillStyle = n % 90 === 0 ? INK : DIM; g.fillText(POINTS[n], x, 28); }
       else if (n % 15 === 0) { g.fillStyle = FAINT; g.fillText(String(n).padStart(3, '0'), x, 28); }
     }
     g.globalAlpha = 1;
@@ -242,9 +255,7 @@ export class Hud {
     const yOf = (a) => cy - (a - alt) * ppm;
     g.save();
     g.beginPath(); g.rect(0, 0, 90, H); g.clip();
-    const bg = g.createLinearGradient(0, 0, 90, 0);
-    bg.addColorStop(0, 'rgba(3,4,10,0.5)'); bg.addColorStop(1, 'rgba(3,4,10,0)');
-    g.fillStyle = bg; g.fillRect(0, 0, 90, H);
+    g.fillStyle = this.altBg; g.fillRect(0, 0, 90, H);
     // cloud deck
     const c0 = yOf(CITY.cloudTop), c1 = yOf(CITY.cloudBase);
     if (c1 > 0 && c0 < H) {
@@ -288,9 +299,7 @@ export class Hud {
     }
     // fade the ends of the tape
     g.globalCompositeOperation = 'destination-in';
-    const vm = g.createLinearGradient(0, 0, 0, H);
-    vm.addColorStop(0, 'rgba(0,0,0,0)'); vm.addColorStop(0.16, '#000'); vm.addColorStop(0.84, '#000'); vm.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = vm; g.fillRect(0, 0, 90, H);
+    g.fillStyle = this.altMask; g.fillRect(0, 0, 90, H);
     g.globalCompositeOperation = 'source-over';
     g.restore();
     // readout
@@ -328,10 +337,7 @@ export class Hud {
     g.clearRect(0, 0, W, W);
     g.save();
     g.beginPath(); g.arc(W / 2, W / 2, R, 0, Math.PI * 2); g.clip();
-    const tint = g.createRadialGradient(W / 2, W / 2, 0, W / 2, W / 2, R);
-    tint.addColorStop(0, 'rgba(4, 10, 20, 0.5)');
-    tint.addColorStop(1, 'rgba(4, 14, 26, 0.25)');
-    g.fillStyle = tint; g.fillRect(0, 0, W, W);
+    g.fillStyle = this.mapTint; g.fillRect(0, 0, W, W);
     const range = 220 + Math.min(700, s.speed * 3 + Math.max(0, s.alt - 40) * 0.7);
     const scale = EDGE / range; // css px per metre
     const k = MAP.size / (MAP.extent * 2); // map px per metre
@@ -360,10 +366,7 @@ export class Hud {
     g.restore();
     // instruments over it: an inner glow, a range ring, compass ticks turning with the heading, a slow sweep
     const cx = W / 2;
-    const glow = g.createRadialGradient(cx, cx, R * 0.55, cx, cx, R * 0.9);
-    glow.addColorStop(0, 'rgba(59, 232, 255, 0)');
-    glow.addColorStop(1, 'rgba(59, 232, 255, 0.16)');
-    g.fillStyle = glow;
+    g.fillStyle = this.mapGlow;
     g.beginPath(); g.arc(cx, cx, R * 0.9, 0, Math.PI * 2); g.fill();
     g.strokeStyle = 'rgba(150, 225, 255, 0.22)';
     g.lineWidth = 1;

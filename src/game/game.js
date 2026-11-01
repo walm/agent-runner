@@ -428,7 +428,7 @@ export class Game {
     this.hud.update({
       speed: k.speed, boost: k.boosting ? 1 : Math.min(1, k.boostHeat || 0), mode: k.mode, lane, district: this.district,
       bearing, heading: -bearing / DEG, x: k.pos.x, z: k.pos.z, alt: k.pos.y, groundY: groundAt(this.city, k.pos.x, k.pos.z, k.pos.y), vy: k.vel.y,
-      markers, mapMarkers, route: this.nav?.line(),
+      markers, mapMarkers, route: this.nav?.line(), paused: !!this.screens.open,
     }, dt);
   }
 
