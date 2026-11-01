@@ -10,4 +10,12 @@ export default defineConfig({
   buildCommand: "bun scripts/build.mjs",
   resources: ["../dist"],
   out: "build",
+  macos: {
+    infoPlist: {
+      // push to talk in an agent's terminal (src/agents/talk.js): without these macOS ends the app when the game
+      // asks for the microphone, or refuses the server's AppleScript to the terminal an agent runs in
+      NSMicrophoneUsageDescription: "Hold Space in an agent's terminal to talk to the agent. The speech is turned into text on this Mac.",
+      NSAppleEventsUsageDescription: "What you say to an agent is typed into the terminal it runs in (Ghostty, iTerm2 or Terminal).",
+    },
+  },
 });
