@@ -4,7 +4,7 @@ const KEYS = {
   steer: [['KeyD', 'ArrowRight'], ['KeyA', 'ArrowLeft']],
   lift: [['Space'], ['KeyC']],
 };
-const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit', KeyP: 'autopilot' };
+const ACTIONS = { KeyV: 'camera', KeyM: 'map', KeyH: 'help', KeyR: 'reset', Escape: 'pause', KeyF: 'horn', Enter: 'confirm', KeyN: 'next', KeyB: 'radio', KeyG: 'agents', KeyQ: 'quit', KeyP: 'autopilot', KeyK: 'mute' };
 const PREVENT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
 const NONE = { throttle: 0, steer: 0, lift: 0, boost: false };
 // the gamepad's buttons, standard mapping (what each does is the game's to decide, by what is open: game.js)

@@ -1,3 +1,5 @@
+import { SPEAKER } from './hud.js';
+
 // Touch: a stick for throttle and steering on the left, climb/descend and boost on the right, menu buttons top right.
 export function isTouch() {
   return matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -11,7 +13,7 @@ export function createTouch(root, input) {
         <div class="tbtn" data-k="up">UP</div><div class="tbtn" data-k="boost">BOOST</div>
         <div class="tbtn" data-k="down">DOWN</div><div class="tbtn" data-k="cam">CAM</div>
       </div>
-      <div class="tmenu"><div class="tbtn" data-k="map">MAP</div><div class="tbtn" data-k="menu">☰</div></div>
+      <div class="tmenu"><div class="tbtn" data-k="mute">${SPEAKER}</div><div class="tbtn" data-k="map">MAP</div><div class="tbtn" data-k="menu">☰</div></div>
     </div>`);
   const el = root.querySelector('#touch');
   const stick = el.querySelector('.stick'), knob = stick.querySelector('i');
@@ -51,6 +53,7 @@ export function createTouch(root, input) {
       else if (k === 'down') t.lift = -1;
       else if (k === 'boost') t.boost = true;
       else if (k === 'cam') input.queue.push('camera');
+      else if (k === 'mute') input.queue.push('mute');
       else if (k === 'map') input.queue.push('map');
       else if (k === 'menu') input.queue.push('pause');
     });
@@ -63,5 +66,6 @@ export function createTouch(root, input) {
     b.addEventListener('pointercancel', up);
     b.addEventListener('pointerleave', up);
   }
-  return { show: (on) => el.classList.toggle('hidden', !on) };
+  const mute = el.querySelector('[data-k=mute]');
+  return { show: (on) => el.classList.toggle('hidden', !on), muted: (on) => mute.classList.toggle('muted', on) };
 }

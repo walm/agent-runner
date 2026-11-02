@@ -17,6 +17,7 @@ const CONTROLS = [
   ['Reset to street', 'R'],
   ['Horn', 'F'],
   ['Radio on/off · next track', 'B · N'],
+  ['All sound off/on', 'K · THE SPEAKER IN THE HUD'],
   ['Agents list', 'G'],
   ['In the list: drive · autopilot there · warp', 'ENTER · P · W'],
   ['Terminal at an agent\'s door', 'ENTER'],
@@ -188,6 +189,11 @@ export class Screens {
     if (this.open === 'pause' && this.tab === 'menu') this.showPause('menu');
   }
 
+  // a setting changed outside the menu (K mutes): redraw its tab when it is open
+  updateSettings() {
+    if (this.open === 'pause' && this.tab === 'settings') this.showPause('settings');
+  }
+
   // the radio's state changed: redraw its tab when it is open
   updateRadio() {
     if (this.open === 'pause' && this.tab === 'radio') this.showPause('radio');
@@ -243,7 +249,8 @@ export class Screens {
         <div class="row sub ${s.voice ? '' : 'dim'}"><span>RADIO VOICE <small class="hint">DJ · NEON FM</small></span>${seg('radioVoice', [[0, 'OFF'], [1, 'ON']])}</div>
         <div class="row"><span>TALK LANGUAGE <small class="hint">HOLD SPACE IN A TERMINAL</small></span>${seg('talkLang', [['en', 'EN'], ['auto', 'AUTO'], ['de', 'DE'], ['fr', 'FR'], ['es', 'ES'], ['it', 'IT'], ['nl', 'NL'], ['pl', 'PL']])}</div>
         <div class="row"><span>VR DETAIL</span>${seg('vrDetail', [['auto', 'AUTO'], ['low', 'LOW'], ['medium', 'MEDIUM'], ['high', 'HIGH']])}</div>
-        <div class="row"><span>MASTER VOLUME</span><span>${slider('volume', 0, 1, 0.05)}</span></div>
+        <div class="row"><span>SOUND <small class="hint">K · THE HUD'S SPEAKER</small></span>${seg('mute', [[0, 'ON'], [1, 'MUTED']])}</div>
+        <div class="row ${s.mute ? 'dim' : ''}"><span>MASTER VOLUME</span><span>${slider('volume', 0, 1, 0.05)}</span></div>
         <div class="row"><span>BACKGROUND <small class="hint">RAIN · CITY · CAR</small></span><span>${slider('background', 0, 1, 0.05)}</span></div>
         <div class="row"><span>RADIO / MUSIC</span><span>${slider('music', 0, 1, 0.05)}</span></div>
         <div class="row"><span>VOICE VOLUME <small class="hint">AGENTS · DJ</small></span><span>${slider('voiceVolume', 0, 1, 0.05)}</span></div>
