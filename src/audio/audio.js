@@ -141,7 +141,7 @@ export class Sound {
     this.applySettings();
     const t = ctx.currentTime;
     this.master.gain.setValueAtTime(0, t);
-    this.master.gain.linearRampToValueAtTime(this.settings.volume, t + 2.5);
+    this.master.gain.linearRampToValueAtTime(this.masterLevel(), t + 2.5);
     this.nextNote = ctx.currentTime + 0.2;
     this.step16 = 0;
     this.timer = setInterval(() => this.schedule(), 25);
@@ -151,7 +151,7 @@ export class Sound {
   applySettings() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime, s = this.settings;
-    this.master.gain.setTargetAtTime(s.volume, t, 0.1);
+    this.master.gain.setTargetAtTime(this.masterLevel(), t, 0.05);
     this.world.gain.setTargetAtTime(s.background ?? 1, t, 0.1);
     this.voiceBus.gain.setTargetAtTime(s.voiceVolume ?? 1, t, 0.1);
     const music = this.musicLevel();
@@ -161,6 +161,11 @@ export class Sound {
     this.synthBus.gain.setTargetAtTime(synth, t, 0.4);
     this.synthVerb.gain.setTargetAtTime(synth * music, t, 0.4);
     this.synthEcho.gain.setTargetAtTime(synth * music, t, 0.4);
+  }
+
+  // everything at once: the master volume, or nothing while muted (the HUD's speaker, K)
+  masterLevel() {
+    return this.settings.mute ? 0 : this.settings.volume;
   }
 
   // the radio's level now: its setting, off, or stepped back under a voice

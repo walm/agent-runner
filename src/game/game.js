@@ -318,6 +318,7 @@ export class Game {
     else if (o === 'results') { if (a === 'confirm') this.screens.closeResults(); else if (a === 'reset') { this.screens.closeResults(); this.startRun(this.screens.lastRun); } }
     else if (a === 'agents') { if (!o) this.agents?.toggleList(); }
     else if (a === 'autopilot') { if (!o || o === 'pause') this.cycleAutopilot(); }
+    else if (a === 'mute') this.onMute?.();
     else if (o) return;
     else if (a === 'camera') this.rig.cycle();
     else if (a === 'reset') this.reset();

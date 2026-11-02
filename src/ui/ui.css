@@ -127,7 +127,15 @@
 .h-hints.fade { opacity: 0; }
 .key { display: inline-block; font-family: var(--mono); font-size: 10px; color: var(--ink); border: 1px solid var(--line); padding: 2px 5px 1px; margin-right: 6px; border-radius: 2px; letter-spacing: 0; }
 .h-radio { position: absolute; left: calc(var(--gutter) + 150px); top: 50%; transform: translateY(-50%); max-width: 300px; }
-.h-np { position: absolute; right: var(--gutter); bottom: calc(var(--gutter) + 158px); display: flex; align-items: center; gap: 12px; max-width: 300px; padding: 8px 12px 8px 14px; text-align: right;
+/* lower right, over the speed: the speaker (all sound off / on), and the radio under it */
+.h-dock { position: absolute; right: var(--gutter); bottom: calc(var(--gutter) + 158px); display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.h-mute { pointer-events: auto; cursor: pointer; display: grid; place-items: center; width: 28px; height: 24px; padding: 0; color: var(--ink-dim); background: rgba(10, 14, 28, 0.55);
+  border: 1px solid var(--line); transition: color 0.2s, border-color 0.2s, background 0.2s; }
+.h-mute:hover { color: #fff; border-color: var(--cyan-dim); background: rgba(59, 232, 255, 0.14); }
+.spk .off, .muted .spk .on { display: none; }
+.muted .spk .off { display: inline; }
+.h-mute.muted { color: var(--mag); border-color: var(--mag); background: rgba(255, 61, 242, 0.14); box-shadow: 0 0 10px rgba(255, 61, 242, 0.3); }
+.h-np { position: relative; display: flex; align-items: center; gap: 12px; max-width: 300px; padding: 8px 12px 8px 14px; text-align: right;
   background: linear-gradient(270deg, rgba(8, 10, 22, 0.55), rgba(8, 10, 22, 0)); border-right: 1px solid var(--cyan-dim); transition: opacity 0.6s ease; }
 .h-np.hidden { display: flex; opacity: 0; }
 .h-np > div { display: grid; min-width: 0; order: -1; }
@@ -272,6 +280,8 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; background: v
 .tbtn.on { border-color: var(--cyan); background: rgba(59, 232, 255, 0.2); }
 .tmenu { position: absolute; right: 18px; top: 18px; display: flex; gap: 8px; }
 .tmenu .tbtn { width: 44px; height: 44px; }
+.tbtn.muted { color: var(--mag); border-color: var(--mag); background: rgba(255, 61, 242, 0.16); }
+.touch .h-mute { display: none; }
 
 @media (max-width: 760px), (max-height: 520px) {
   .h-alt { transform: translateY(-50%) scale(0.78); transform-origin: left center; }

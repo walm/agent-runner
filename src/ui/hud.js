@@ -15,6 +15,9 @@ function canvas(el, w, h) {
   return g;
 }
 
+// a speaker with its sound waves, or struck through (.muted): the HUD's mute, and the touch menu's
+export const SPEAKER = `<svg class="spk" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6h2.5L8 3v10L4.5 10H2z" fill="currentColor" fill-opacity="0.18"/><path class="on" d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6.3 6.3 0 0 1 0 9"/><path class="off" d="M10.5 6l4 4M14.5 6l-4 4"/></svg>`;
+
 const MAP_W = 280; // the minimap's size in css px (ui.css shrinks it on small screens)
 const POINTS = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
 
@@ -44,8 +47,11 @@ export class Hud {
         <div class="h-count hidden"></div>
         <div class="h-radio"></div>
         <div class="h-ap interactive" title="Autopilot · P"><span>AUTOPILOT</span><b>OFF</b><small></small></div>
-        <div class="h-np hidden"><i class="eq"><b></b><b></b><b></b><b></b></i><div><small></small><span class="t"></span><span class="a"></span>
-          <span class="ctl"><button data-np="prev" title="Previous track">◀◀</button><button data-np="station" title="Next station">STATION ▸</button><button data-np="next" title="Next track · N">▶▶</button><button data-np="power" title="Radio on / off · B">❚❚</button></span></div></div>
+        <div class="h-dock">
+          <button class="h-mute" title="All sound off / on · K">${SPEAKER}</button>
+          <div class="h-np hidden"><i class="eq"><b></b><b></b><b></b><b></b></i><div><small></small><span class="t"></span><span class="a"></span>
+            <span class="ctl"><button data-np="prev" title="Previous track">◀◀</button><button data-np="station" title="Next station">STATION ▸</button><button data-np="next" title="Next track · N">▶▶</button><button data-np="power" title="Radio on / off · B">❚❚</button></span></div></div>
+        </div>
         <div class="h-hints"></div>
         <div class="h-prompt hidden"></div>
       </div>`);
@@ -72,6 +78,8 @@ export class Hud {
     this.count = q('.h-count');
     this.radioEl = q('.h-radio');
     this.np = q('.h-np');
+    this.muteEl = q('.h-mute');
+    this.muteEl.addEventListener('pointerdown', (e) => { e.preventDefault(); this.onMute?.(); });
     this.ap = q('.h-ap');
     this.ap.addEventListener('pointerdown', (e) => { e.preventDefault(); this.onAutopilot?.(); });
     // its buttons: prev, station, next, power (onRadioCmd); pointerdown, so the keys stay with the game
@@ -144,6 +152,12 @@ export class Hud {
   }
 
   onAir(on) { this.np.classList.toggle('air', on); }
+
+  // the speaker above the radio: struck through while all sound is off
+  muted(on) {
+    this.muteEl.classList.toggle('muted', on);
+    this.muteEl.title = on ? 'Sound is off · K turns it on' : 'All sound off / on · K';
+  }
 
   // the autopilot chip, top right: its mode (a click steps it on), and what it is doing
   autopilot(mode, what) {

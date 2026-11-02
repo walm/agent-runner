@@ -53,7 +53,7 @@ import { NavVisuals } from './game/navvis.js';
 const params = new URLSearchParams(location.search);
 const WARM_STALL_MS = 8000; // the boot stops waiting for its shader warm-up once nothing has compiled for this long
 
-const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, agentVoice: 1, radioVoice: 1, volume: 0.8, background: 1, music: 0.6, voiceVolume: 1, radioSource: 'neonfm', radioCategory: 'all', radioDj: 1, fov: 60, hud: 1, shake: 1, talkLang: 'en' };
+const DEFAULTS = { quality: 'auto', rain: 1, traffic: 1, vrDetail: 'auto', voice: 0, agentVoice: 1, radioVoice: 1, volume: 0.8, mute: 0, background: 1, music: 0.6, voiceVolume: 1, radioSource: 'neonfm', radioCategory: 'all', radioDj: 1, fov: 60, hud: 1, shake: 1, talkLang: 'en' };
 function loadSettings() {
   try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('nz.settings') || '{}') }; } catch { return { ...DEFAULTS }; }
 }
@@ -299,7 +299,8 @@ async function boot() {
       traffic.group.visible = settings.traffic > 0;
       sky2.group.visible = settings.traffic > 0 && !vr.tier;
     }
-    if (['volume', 'background', 'music', 'voiceVolume', 'all'].includes(k)) sound.applySettings();
+    if (['volume', 'mute', 'background', 'music', 'voiceVolume', 'all'].includes(k)) sound.applySettings();
+    if (k === 'mute' || k === 'all') { hud.muted(!!settings.mute); touchUi.muted(!!settings.mute); }
     if (k === 'radioSource' || k === 'radioCategory') radio.listenerPicked(k);
     if (k === 'radioDj') radio.apply();
     if (k === 'voice' || k === 'all') voice.setEnabled(!!settings.voice);
@@ -310,6 +311,13 @@ async function boot() {
   game = new Game({ city, kite, rig, camera, input, hud, screens, sound, music: radio, visuals, runs, book, shards, settings, attract, traffic, skyTraffic: sky2, touch, agents, nav, padnav: new PadNav() });
   game.onRadioLine = (who, text) => radio.speakLine(who, text);
   hud.onAutopilot = () => { sound.start(); game.cycleAutopilot(); };
+  // all sound off or on: the HUD's speaker, K
+  hud.onMute = game.onMute = () => {
+    settings.mute = settings.mute ? 0 : 1;
+    applySetting('mute');
+    screens.updateSettings();
+    hud.toast(settings.mute ? 'SOUND OFF · K' : 'SOUND ON');
+  };
   game.onWelcome = () => radio.goLive();
   game.welcomeReady = () => !!agents.feed.synced && (!settings.voice || !settings.radioVoice || voice.ready);
   agents.bind(game);
