@@ -5,17 +5,17 @@ import { fileURLToPath } from 'node:url';
 import { basename } from 'node:path';
 
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', blue: '\x1b[34m', mag: '\x1b[35m', cyan: '\x1b[36m', grey: '\x1b[90m' };
-const host = 'mbp-walm';
+const host = 'macbook';
 
 export const AGENTS = [
   { id: `claude-code:${host}:shop-api:7f3a`, harness: 'claude-code', name: 'shop-api · auth refactor', cwd: '~/src/shop-api', model: 'claude-opus-5-5', tasks: ['Refactor session handling to signed cookies', 'Add rate limiting to /login', 'Fix flaky checkout test'] },
-  { id: `claude-code:${host}:depict-web:21bd`, harness: 'claude-code', name: 'depict-web · search UI', cwd: '~/src/depict-web', model: 'claude-sonnet-5-5', tasks: ['Build faceted search sidebar', 'Debounce query input', 'Write Playwright test for filters'] },
+  { id: `claude-code:${host}:storefront:21bd`, harness: 'claude-code', name: 'storefront · search UI', cwd: '~/src/storefront', model: 'claude-sonnet-5-5', tasks: ['Build faceted search sidebar', 'Debounce query input', 'Write Playwright test for filters'] },
   { id: `claude-code:${host}:infra:0c99`, harness: 'claude-code', name: 'infra · terraform drift', cwd: '~/src/infra', model: 'claude-opus-5-5', tasks: ['Reconcile terraform drift in eu-north-1', 'Tighten IAM on the ingest bucket'] },
   { id: `codex:${host}:ranker:5e01`, harness: 'codex', name: 'ranker · feature store', cwd: '~/src/ranker', model: 'codex', tasks: ['Port feature store reader to Arrow', 'Profile the scoring loop'] },
   { id: `codex:${host}:etl:a1a1`, harness: 'codex', name: 'etl · nightly job', cwd: '~/src/etl', model: 'codex', tasks: ['Backfill October events', 'Add dead-letter queue for bad rows'] },
   { id: `pi:${host}:notes:3c3c`, harness: 'pi', name: 'notes · summariser', cwd: '~/notes', model: 'pi', tasks: ['Summarise the week of meeting notes', 'Tag notes by project'] },
   { id: `pi:${host}:dotfiles:77aa`, harness: 'pi', name: 'dotfiles · zsh cleanup', cwd: '~/.dotfiles', model: 'pi', tasks: ['Speed up shell start', 'Move aliases into modules'] },
-  { id: 'deploy-bot:ci:prod', harness: 'deploy-bot', name: 'deploy-bot · prod', cwd: 'ci://prod', model: 'workflow', tasks: ['Roll out shop-api v2.14', 'Canary depict-web 5%'] },
+  { id: 'deploy-bot:ci:prod', harness: 'deploy-bot', name: 'deploy-bot · prod', cwd: 'ci://prod', model: 'workflow', tasks: ['Roll out shop-api v2.14', 'Canary storefront 5%'] },
 ];
 
 const FILES = ['src/auth/session.ts', 'src/routes/login.ts', 'src/lib/cookies.ts', 'tests/checkout.spec.ts', 'src/components/Facets.tsx', 'main.tf', 'iam.tf', 'ranker/features.py', 'etl/backfill.py', 'zshrc', 'README.md'];
@@ -105,7 +105,7 @@ export const BILLBOARDS = [
     svg: poster('#041420', '#02060c', '#3be8ff',
       '<rect x="180" y="150" width="200" height="460" rx="18" fill="none" stroke="#3be8ff" stroke-width="10"/>' + [0, 1, 2, 3, 4].map((i) => `<rect x="212" y="${190 + i * 82}" width="${90 + (i % 3) * 30}" height="26" rx="13" fill="#3be8ff" fill-opacity="${0.9 - i * 0.12}"/>`).join('')
       + [0, 1, 2].map((r) => [0, 1].map((c) => `<rect x="${430 + c * 210}" y="${150 + r * 160}" width="180" height="130" rx="14" fill="#0b2a3a" stroke="#3be8ff" stroke-opacity="0.6" stroke-width="4"/>`).join('')).join(''),
-      'SEARCH', 'DEPICT-WEB · FACETS'),
+      'SEARCH', 'STOREFRONT · FACETS'),
   },
   {
     agent: AGENTS[2].id, title: 'Drift: zero', caption: 'eu-north-1 reconciled with the plan',
