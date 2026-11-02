@@ -179,7 +179,8 @@ async function talk(id, body) {
   if (!meant.keys.length) return { ok: false, error: 'nothing was said', ...meant };
   const text = meant.text;
   const C = { cyan: '\x1b[36m', grey: '\x1b[90m', red: '\x1b[31m', reset: '\x1b[0m', bold: '\x1b[1m' };
-  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}${meant.picked ? '▸' : meant.typed ? '⌨' : '🎙'} ${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
+  // the microphone is drawn two cells wide in a terminal that gives it one: a second space keeps it off the text
+  const echo = (how, ok = true) => store.append(a, `${C.cyan}${C.bold}${meant.picked ? '▸ ' : meant.typed ? '⌨ ' : '🎙  '}${text}${C.reset} ${ok ? C.grey : C.red}→ ${meant.label} · ${how}${C.reset}\n`);
   const mock = mocks.get(id);
   if (mock) {
     const note = mock(meant);

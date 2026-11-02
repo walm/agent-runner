@@ -1,25 +1,93 @@
 # Agent Runner
 
+<img src="docs/media/start.webp" alt="The title screen: AGENT RUNNER in pink neon over a rainy night street, a flying car hovering in the road" width="100%">
+
 **Your AI agents live in a rain-soaked neon city.** Each agent you run (Claude Code, Codex, Pi, a deploy bot, any
 agent-driven app) gets its own building, with its name in neon on the roof. Light pillars on the roofs show what
 every agent is doing. Drive or fly to whoever needs you, pull up at the kerb, and open a terminal that streams the
-agent's output live. Agents can put posters about their work up on the city's LED billboards.
+agent's output live. Answer it from there: pick an option, type, or hold a key and say it. Agents can put posters
+about their work up on the city's LED billboards.
 
 Agents report in with one HTTP POST, so any harness can connect through a hook, a skill or a three-line script.
+For Claude Code there is a mod that connects every session, in any terminal, with one command.
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="docs/media/drive-to-agent.webp" alt="The agents list; the autopilot flies to the chosen agent by the satnav and lands at its kerb, where its card shows"><br><sub><b>Drive to an agent.</b> Choose it in the agents list (<code>G</code>) and press <code>P</code>: the autopilot follows the satnav, lands at the agent's kerb and gives you the car back with its card up.</sub></td>
+    <td width="50%" valign="top"><img src="docs/media/over-the-roofs.webp" alt="Flying down an avenue at 176 metres at nearly 390 km/h, towers ahead and on both sides"><br><sub><b>Over the roofs.</b> Lift off and boost down the avenues between the sky lanes, at nearly 390 km/h, with the towers of the centre ahead.</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/media/terminal-talk.webp" alt="An agent's terminal with its question's options under it; the d-pad moves through them, &quot;select two&quot; is said and picked, then a permission prompt is allowed" width="100%"><br><sub><b>Answer it.</b> The agent's terminal lists its options: click one, press its number, step through them with the d-pad, or hold <code>Space</code> and say "select two". Speech is heard on your machine. Here the playground, a demo agent, asks which database to use, then for permission to run a command.</sub></td>
+  </tr>
+</table>
 
 This is a fork of [**Neon Zenith**](https://github.com/billpwchan/neon-zenith) by Bill Chan (MIT): the city, the
 flying car, the rendering and the weather are all his. The original README, with how the city is built, is in
 [docs/NEON-ZENITH.md](docs/NEON-ZENITH.md). The third-party models and textures keep their own licences
 ([CREDITS.md](CREDITS.md)).
 
-## Quick start
+## Get started
+
+### 1. Install the app (macOS)
+
+1. Download `agent-runner-<version>.dmg` from the [latest release](https://github.com/walm/agent-runner/releases/latest),
+   open it and drag **Agent Runner** to Applications. It runs on Apple Silicon and Intel Macs.
+2. The app is signed ad hoc, not notarised, so macOS refuses to open a downloaded copy ("damaged" or "cannot be
+   verified"). Clear the download flag once, in Terminal:
+
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/Agent Runner.app"
+   ```
+
+3. Open Agent Runner. It starts the agent server on `http://127.0.0.1:5210` and shows its console: **PLAY HERE**
+   starts the game in the window, **OPEN IN CHROME** and **OPEN IN BROWSER** in a browser. Closing the window keeps
+   the server running for your agents; quitting the app stops it.
+
+Not on a Mac, or want to change it? [Run it from source](#run-from-source) on any system with Node and a WebGPU
+browser (Chrome or Edge).
+
+### 2. Connect Claude Code
+
+In Claude Code, install the mod from this repository:
+
+```
+/plugin install agent-runner --marketplace walm/agent-runner
+```
+
+(or from a shell: `claude plugin install agent-runner --marketplace walm/agent-runner`). From then on every Claude
+Code session reports to the city: it gets a building in Temple Night Market named after its folder, its terminal in
+the game shows its prompts, tool calls and replies, and what you pick, type or say in the game goes back into the
+session, wherever it runs (any terminal, an editor, the desktop app), also while it sits idle. Sessions started
+while the app is closed show up as soon as it opens.
+
+It needs a recent Claude Code (2.1.3xx, with function hooks). Settings, under `/config` > agent-runner: the server's
+address (default `http://127.0.0.1:5210`, the app's) and its token, if you set one. Codex, scripts and other
+harnesses: see [Connect a harness](#connect-a-harness).
+
+### 3. Demo agents on or off
+
+<img src="docs/media/demo-agents.webp" alt="The app's server console: DEMO AGENTS is ticked and nine agents arrive in its list; unticked, they leave" width="460" align="right">
+
+The app starts with **demo agents**, so the city has someone in it before your own agents arrive: made-up Claude
+Code, Codex, Pi and deploy-bot sessions that work, finish, fail and wait for you, and **playground · talk to me**, which
+asks questions and permission prompts you can practise answering (see [Talk to your agents](#talk-to-your-agents)).
+
+Turn them off, or back on, with **DEMO AGENTS** at the bottom of the console, or **Agents > Demo Agents** in the
+menu bar. The app remembers. The server restarts to do it: sessions with the mod show again within seconds, agents
+on hooks with their next event.
+
+From source, `npm run dev` runs with the demo agents and `npm run dev:nomock` without.
+
+<br clear="right">
+
+## Run from source
 
 ```bash
 npm install
-npm run dev          # agent server on :5210 with 8 mock agents, game on http://127.0.0.1:5200
+npm run dev          # agent server on :5210 with the demo agents, game on http://127.0.0.1:5200
 ```
 
-Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts without the mock agents.
+Open http://127.0.0.1:5200 and choose FREE RIDE. `npm run dev:nomock` starts without the demo agents.
 
 |                                                               |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

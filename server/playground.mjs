@@ -5,7 +5,7 @@
 // answers in its terminal as a real agent would.
 const C = { reset: '\x1b[0m', dim: '\x1b[2m', bold: '\x1b[1m', red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', mag: '\x1b[35m', cyan: '\x1b[36m', grey: '\x1b[90m' };
 
-export const PLAYGROUND = 'claude-code:mbp-walm:playground';
+export const PLAYGROUND = 'claude-code:macbook:playground';
 
 const QUESTIONS = [
   { q: 'Which database should the cache use?', options: ['Postgres', 'SQLite', 'Redis', 'Keep the JSON files'] },
@@ -30,7 +30,7 @@ export function runPlayground(post, { fast = false } = {}) {
 
   async function work(what, steps = 3) {
     stopped = false;
-    say({ status: 'working', message: what, meta: { prompt: null, choices: null, task: what } });
+    say({ status: 'working', last: what, meta: { prompt: null, choices: null, task: what } });
     for (let i = 0; i < steps; i++) {
       await sleep(1.6);
       if (stopped) {
@@ -38,14 +38,14 @@ export function runPlayground(post, { fast = false } = {}) {
         return false;
       }
       const tool = ['Read', 'Edit', 'Bash'][i % 3];
-      say({ message: `${tool} src/cache.ts`, text: `${C.yellow}⏺${C.reset} ${C.bold}${tool}${C.reset}(src/cache.ts)\n${C.grey}  ⎿  ${20 + i * 37} lines${C.reset}\n` });
+      say({ last: `${tool} src/cache.ts`, text: `${C.yellow}⏺${C.reset} ${C.bold}${tool}${C.reset}(src/cache.ts)\n${C.grey}  ⎿  ${20 + i * 37} lines${C.reset}\n` });
     }
     return true;
   }
 
   async function prompt(message) {
     // at its prompt: anything said is the next task
-    const m = await ask({ status: 'done', message, meta: { prompt: 'input', choices: null }, text: `\n${C.green}${C.bold}✔${C.reset} ${message}\n${C.grey}  (say anything: it becomes the next task)${C.reset}\n` });
+    const m = await ask({ status: 'done', last: message, meta: { prompt: 'input', choices: null }, text: `\n${C.green}${C.bold}✔${C.reset} ${message}\n${C.grey}  (say anything: it becomes the next task)${C.reset}\n` });
     if (m.kind === 'stop' || m.kind === 'none') return;
     say({ text: `\n${C.mag}${C.bold}❯${C.reset} ${C.bold}${m.text}${C.reset}\n\n` });
     await work(m.text, 3);
@@ -54,7 +54,7 @@ export function runPlayground(post, { fast = false } = {}) {
   async function question(n) {
     const { q, options } = QUESTIONS[n % QUESTIONS.length];
     const m = await ask({
-      status: 'waiting', message: q, meta: { prompt: 'menu', choices: options, task: 'Set up the order cache' },
+      status: 'waiting', last: q, meta: { prompt: 'menu', choices: options, task: 'Set up the order cache' },
       text: `\n${C.mag}${C.bold}? ${q}${C.reset}\n${options.map((o, i) => `${C.mag}  ${i + 1}. ${o}${C.reset}`).join('\n')}\n`,
     });
     const at = m.kind === 'choose' ? +m.keys[0].key - 1 : m.kind === 'yes' ? 0 : -1;
@@ -77,7 +77,7 @@ export function runPlayground(post, { fast = false } = {}) {
     const cmd = COMMANDS[n % COMMANDS.length];
     const choices = PERMIT(cmd);
     const m = await ask({
-      status: 'waiting', message: `Allow Bash(${cmd})?`, meta: { prompt: 'menu', choices },
+      status: 'waiting', last: `Allow Bash(${cmd})?`, meta: { prompt: 'menu', choices },
       text: `\n${C.mag}${C.bold}? Allow ${C.reset}${C.bold}Bash(${cmd})${C.mag}${C.bold}?${C.reset}\n${choices.map((o, i) => `${C.mag}  ${i + 1}. ${o}${C.reset}`).join('\n')}\n`,
     });
     const at = m.kind === 'choose' ? +m.keys[0].key : m.kind === 'yes' ? 1 : m.kind === 'no' ? 3 : 0;
