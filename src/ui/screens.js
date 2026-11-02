@@ -18,6 +18,7 @@ const CONTROLS = [
   ['Horn', 'F'],
   ['Radio on/off · next track', 'B · N'],
   ['Agents list', 'G'],
+  ['In the list: drive · autopilot there · warp', 'ENTER · P · W'],
   ['Terminal at an agent\'s door', 'ENTER'],
   ['Talk to the agent (in its terminal): hold, speak, let go', 'SPACE · GAMEPAD X'],
   ['Type to the agent (in its terminal)', 'ENTER · TYPE · ENTER SENDS · ESC LEAVES'],

@@ -61,6 +61,7 @@ export class AgentLayer {
     this.feed.onBoardRemove = (id) => { this.billboards?.remove(id); this.cardKey = ''; };
     this.panel.onDrive = (id) => this.drive(id);
     this.panel.onWarp = (id) => this.warp(id);
+    this.panel.onAuto = (id) => this.auto(id);
     this.panel.onClose = () => this.close();
     this.term.onClose = () => this.close();
     // push to talk in the terminal (talk.js): Space, X on a gamepad, or the terminal's button held
@@ -223,6 +224,7 @@ export class AgentLayer {
     else if (o === 'agents' && e.code === 'ArrowUp') this.panel.move(-1);
     else if (o === 'agents' && e.code === 'Enter') { const id = this.panel.selected(); if (id) this.drive(id); }
     else if (o === 'agents' && e.code === 'KeyW') { const id = this.panel.selected(); if (id) this.warp(id); }
+    else if (o === 'agents' && e.code === 'KeyP') { const id = this.panel.selected(); if (id) this.auto(id); }
     else used = false;
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); }
   }
@@ -235,6 +237,17 @@ export class AgentLayer {
     this.game.waypointAgent = id;
     this.close();
     this.hud.toast(`WAYPOINT · ${esc(e.agent.name)}`, 'cyan');
+  }
+
+  // the autopilot drives there: the waypoint as for DRIVE, and the agent mode pinned to this one agent, which
+  // lands at its kerb and hands the car back (autopilot.js)
+  auto(id) {
+    const e = this.entries.get(id);
+    if (!e || !this.game) return;
+    this.game.waypoint = { x: e.place.dock.x, z: e.place.dock.z };
+    this.game.waypointAgent = id;
+    this.close();
+    this.game.setAutopilot('agent', null, { pin: id });
   }
 
   warp(id) {
@@ -317,7 +330,7 @@ export class AgentLayer {
   }
 
   // a gamepad in the list (game.js calls it while the list is open): the d-pad or the left stick chooses, held to
-  // keep moving; A drives there, Y warps there, B or X closes
+  // keep moving; A drives there, the right stick's press autopilots there, Y warps there, B or X closes
   padList(input, dt) {
     const e = input.padEdges, h = input.padHeld, ax = input.padAxes;
     const dir = h[PAD.DOWN] ? 1 : h[PAD.UP] ? -1 : Math.abs(ax[1]) > 0.5 ? Math.sign(ax[1]) : 0;
@@ -325,6 +338,7 @@ export class AgentLayer {
     else if (dir !== this.listHold || (this.listRepeat -= dt) <= 0) { this.panel.move(dir); this.listRepeat = dir === this.listHold ? 0.12 : 0.4; this.listHold = dir; }
     const id = this.panel.selected();
     if (e.has(PAD.A) && id) this.drive(id);
+    else if (e.has(PAD.RS) && id) this.auto(id);
     else if (e.has(PAD.Y) && id) this.warp(id);
     else if (e.has(PAD.B) || e.has(PAD.X) || e.has(PAD.START)) this.close();
   }
